@@ -248,7 +248,19 @@ public class SocketsTCPClient : MonoBehaviour
     //  Console when it works:  [CLIENT] Connected to 127.0.0.1:9050
     Socket StartClient()
     {
-        return null;   // replace with the socket you connected
+        Socket socket = new Socket(
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            ProtocolType.Tcp);
+
+        socket.Connect(
+            new IPEndPoint(
+                IPAddress.Parse(serverIp),
+                port
+            )
+        );
+
+        return socket;   // replace with the socket you connected
     }
 
     // --------------------------------------------------------------------------------- TODO 2 ---
@@ -258,6 +270,7 @@ public class SocketsTCPClient : MonoBehaviour
     //  Console when it works: the server prints  [SERVER] Received: Player
     void OnConnected()
     {
+        SendString("JOIN: " + userName);
         // your code here
     }
 
@@ -267,7 +280,8 @@ public class SocketsTCPClient : MonoBehaviour
     //  Look it up: Socket.Send in the docs.
     int SendRaw(Socket socket, byte[] data)
     {
-        return -1;   // replace with the number of bytes sent
+        return socket.Send(data);
+        //return -1;   // replace with the number of bytes sent
     }
 
     // --------------------------------------------------------------------------------- TODO 4 ---
@@ -277,6 +291,11 @@ public class SocketsTCPClient : MonoBehaviour
     //  Console when it works:  [CLIENT] Received: MyServer
     int ReceiveRaw(Socket socket, byte[] buffer, int offset, int count)
     {
-        return -1;   // replace with the number of bytes read
+        return socket.Receive(
+            buffer,
+            offset,
+            count,
+            SocketFlags.None);
+        //return -1;   // replace with the number of bytes read
     }
 }

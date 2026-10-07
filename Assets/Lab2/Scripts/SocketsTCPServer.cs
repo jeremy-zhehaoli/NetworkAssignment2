@@ -52,6 +52,9 @@ public class SocketsTCPServer : MonoBehaviour
 
     Socket m_listener;                                        // only accepts connections
     readonly List<Socket> m_clients = new List<Socket>();     // one socket per connected client
+
+    readonly Dictionary<Socket, string> m_playerNames = new Dictionary<Socket, string>();
+
     readonly List<Thread> m_threads = new List<Thread>();
     readonly ConcurrentQueue<Packet> m_inbox = new ConcurrentQueue<Packet>();
     readonly List<string> m_log = new List<string>();
@@ -271,7 +274,16 @@ public class SocketsTCPServer : MonoBehaviour
     //  Console when it works:  [SERVER] Listening on 9050
     Socket StartServer()
     {
-        return null;   // replace with the socket you prepared
+        Socket socket = new Socket(
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            ProtocolType.Tcp);
+
+        socket.Bind(
+            new IPEndPoint(IPAddress.Any, port));
+
+        socket.Listen(10);
+        return socket;   // replace with the socket you prepared
     }
 
     // --------------------------------------------------------------------------------- TODO 2 ---
@@ -282,7 +294,7 @@ public class SocketsTCPServer : MonoBehaviour
     //  Console when it works:  [SERVER] Client connected: 127.0.0.1:54xxx
     Socket AcceptClient()
     {
-        return null;   // replace with the socket of the accepted client
+        return m_listener.Accept();   // replace with the socket of the accepted client
     }
 
     // --------------------------------------------------------------------------------- TODO 3 ---
@@ -291,7 +303,7 @@ public class SocketsTCPServer : MonoBehaviour
     //  Look it up: Socket.Send in the docs. It returns the number of bytes sent.
     int SendRaw(Socket socket, byte[] data)
     {
-        return -1;   // replace with the number of bytes sent
+        return socket.Send(data);   // replace with the number of bytes sent
     }
 
     // --------------------------------------------------------------------------------- TODO 4 ---
@@ -301,7 +313,7 @@ public class SocketsTCPServer : MonoBehaviour
     //  Return the real number: the given code already knows that 0 means "connection closed".
     int ReceiveRaw(Socket socket, byte[] buffer, int offset, int count)
     {
-        return -1;   // replace with the number of bytes read
+        return socket.Receive(buffer, offset, count, SocketFlags.None);   // replace with the number of bytes read
     }
 
     // --------------------------------------------------------------------------------- TODO 5 ---
@@ -309,11 +321,54 @@ public class SocketsTCPServer : MonoBehaviour
     //  'from' is the socket the packet arrived through, so you already know where to reply.
     //  Use the helper that is already written: SendString(text, socket).
     //  Console when it works: the client prints  [CLIENT] Received: MyServer
+
+    void BroadcastPlayerList()
+    {
+        Socket[] targets;
+        string[] names;
+
+        lock (m_playerNames)
+        {
+            targets = new List<Socket>(m_playerNames.Keys).ToArray();
+
+            names = new List<string>(m_playerNames.Values).ToArray();
+        }
+
+        string message =
+            "PLAYERS: " + string.Join(",", names);
+
+        foreach (Socket target in targets)
+        {
+            SendString(message, target);
+        }
+    }
+
+    void HandleJoin(Socket socket, string playerName)
+    {
+        if (string.IsNullOrWhiteSpace(playerName))
+            return;
+
+        lock (m_playerNames)
+        {
+            m_playerNames[socket] = playerName;
+        }
+
+        Log("[SERVER] Player joined: " + playerName);
+
+        BroadcastPlayerList;
+    }
+     
     void OnPacketReceived(byte[] data, Socket from)
     {
         string text = Encoding.UTF8.GetString(data);
         Log("[SERVER] Received: " + text);
 
+        if (text.StartsWith("JOIN:"))
+        {
+            string.playerName = text.Substring("JOIN: ".Length);
+
+            HandleJoin(from, playerName);
+        }
         // your code here
     }
 }
