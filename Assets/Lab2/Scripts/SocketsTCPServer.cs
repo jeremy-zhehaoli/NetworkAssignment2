@@ -247,15 +247,38 @@ public class SocketsTCPServer : MonoBehaviour
     // In the deliverable you replace it with your own scenes and UI.
     void OnGUI()
     {
-        GUILayout.BeginArea(new Rect(10, 10, Screen.width - 20, Screen.height - 20));
-        GUILayout.Label("TCP SERVER   port " + port + "   name " + serverName);
+        GUILayout.BeginArea(new Rect(10, 10, 450, 400));
 
-        if (!m_running) { if (GUILayout.Button("Start server", GUILayout.Width(110))) StartNetwork(); }
-        else if (GUILayout.Button("Stop", GUILayout.Width(110))) Disconnect();
+        GUILayout.Label("TCP SERVER   port " + port);
+
+        if (!m_running)
+        {
+            if (GUILayout.Button("Create Game", GUILayout.Width(150)))
+            {
+                StartNetwork();
+            }
+        }
+        else
+        {
+            GUILayout.Label("WAITING ROOM");
+            GUILayout.Label("Waiting for players...");
+
+            if (GUILayout.Button("Stop Server", GUILayout.Width(150)))
+            {
+                Disconnect();
+            }
+        }
+
+        GUILayout.Space(10);
 
         lock (m_log)
-            for (int i = Mathf.Max(0, m_log.Count - 18); i < m_log.Count; i++)
+        {
+            for (int i = Mathf.Max(0, m_log.Count - 10);
+                 i < m_log.Count; i++)
+            {
                 GUILayout.Label(m_log[i]);
+            }
+        }
 
         GUILayout.EndArea();
     }
@@ -335,7 +358,7 @@ public class SocketsTCPServer : MonoBehaviour
         }
 
         string message =
-            "PLAYERS: " + string.Join(",", names);
+            "PLAYERS:" + string.Join(",", names);
 
         foreach (Socket target in targets)
         {

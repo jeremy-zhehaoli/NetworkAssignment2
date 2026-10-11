@@ -215,22 +215,46 @@ public class SocketsTCPClient : MonoBehaviour
     // Temporary debug view. In the deliverable you replace it with your own scenes and UI.
     void OnGUI()
     {
-        GUILayout.BeginArea(new Rect(10, 10, Screen.width - 20, Screen.height - 20));
-        GUILayout.Label("TCP CLIENT   port " + port + "   name " + userName);
+        GUILayout.BeginArea(new Rect(10, 10, 450, 400));
 
-        GUILayout.BeginHorizontal();
+        GUILayout.Label("TCP CLIENT");
+
         if (!m_running)
         {
-            GUILayout.Label("Server IP:", GUILayout.Width(70));
-            serverIp = GUILayout.TextField(serverIp, GUILayout.Width(120));
-            if (GUILayout.Button("Connect", GUILayout.Width(110))) StartNetwork();
+            GUILayout.Label("Player Name:");
+            userName = GUILayout.TextField(userName, GUILayout.Width(200));
+
+            GUILayout.Label("Server IP:");
+            serverIp = GUILayout.TextField(serverIp, GUILayout.Width(200));
+
+            GUILayout.Space(10);
+
+            if (GUILayout.Button("Join Game", GUILayout.Width(150)))
+            {
+                StartNetwork();
+            }
         }
-        else if (GUILayout.Button("Disconnect", GUILayout.Width(110))) Disconnect();
-        GUILayout.EndHorizontal();
+        else
+        {
+            GUILayout.Label("WAITING ROOM");
+            GUILayout.Label("Connecting / Connected to " + serverIp);
+
+            if (GUILayout.Button("Disconnect", GUILayout.Width(150)))
+            {
+                Disconnect();
+            }
+        }
+
+        GUILayout.Space(10);
 
         lock (m_log)
-            for (int i = Mathf.Max(0, m_log.Count - 18); i < m_log.Count; i++)
+        {
+            for (int i = Mathf.Max(0, m_log.Count - 10);
+                 i < m_log.Count; i++)
+            {
                 GUILayout.Label(m_log[i]);
+            }
+        }
 
         GUILayout.EndArea();
     }
@@ -270,7 +294,7 @@ public class SocketsTCPClient : MonoBehaviour
     //  Console when it works: the server prints  [SERVER] Received: Player
     void OnConnected()
     {
-        SendString("JOIN: " + userName);
+        SendString("JOIN:" + userName);
         // your code here
     }
 
