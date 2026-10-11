@@ -355,7 +355,7 @@ public class SocketsTCPServer : MonoBehaviour
 
         Log("[SERVER] Player joined: " + playerName);
 
-        BroadcastPlayerList;
+        BroadcastPlayerList();
     }
      
     void OnPacketReceived(byte[] data, Socket from)
@@ -365,7 +365,7 @@ public class SocketsTCPServer : MonoBehaviour
 
         if (text.StartsWith("JOIN:"))
         {
-            string.playerName = text.Substring("JOIN: ".Length);
+            string playerName = text.Substring("JOIN:".Length).Trim();
 
             HandleJoin(from, playerName);
         }
