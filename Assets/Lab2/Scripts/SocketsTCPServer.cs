@@ -366,6 +366,22 @@ public class SocketsTCPServer : MonoBehaviour
         }
     }
 
+    void BroadcastMesssage(string player, string message)
+    {
+        string text = "CHAT:" + player + message;
+        Socket[] targets;
+        lock (m_clients)
+        {
+            targets = m_clients.ToArray();
+        }
+
+        foreach (Socket c in targets)
+        {
+            SendString(text, c);
+        }
+
+    }
+
     void HandleJoin(Socket socket, string playerName)
     {
         if (string.IsNullOrWhiteSpace(playerName))
@@ -391,6 +407,14 @@ public class SocketsTCPServer : MonoBehaviour
             string playerName = text.Substring("JOIN:".Length).Trim();
 
             HandleJoin(from, playerName);
+        }
+        else if (text.StartsWith("CHAT:")) 
+        {
+            string message = text.Substring("CHAT:".Length).Trim();
+
+            string playerName = "TestName"; //Still have to figure out how to separate name from the message
+
+            BroadcastMesssage(playerName, message);
         }
         // your code here
     }

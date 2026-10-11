@@ -51,6 +51,9 @@ public class SocketsTCPClient : MonoBehaviour
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
 
+    //Chat
+    public string messageInput;
+
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -131,6 +134,11 @@ public class SocketsTCPClient : MonoBehaviour
     public void SendString(string text)
     {
         SendPacket(Encoding.UTF8.GetBytes(text));
+    }
+    public void SendChat() 
+    {
+        SendString("CHAT:" + messageInput);
+        messageInput = "";
     }
 
     void ReceiveLoop(Socket socket)
@@ -238,6 +246,14 @@ public class SocketsTCPClient : MonoBehaviour
         {
             GUILayout.Label("WAITING ROOM");
             GUILayout.Label("Connecting / Connected to " + serverIp);
+
+            GUILayout.Label("CHAT");
+            messageInput = GUILayout.TextField(messageInput);
+
+            if (GUILayout.Button("Send", GUILayout.Width(150)))
+            {
+                SendChat();
+            }
 
             if (GUILayout.Button("Disconnect", GUILayout.Width(150)))
             {
