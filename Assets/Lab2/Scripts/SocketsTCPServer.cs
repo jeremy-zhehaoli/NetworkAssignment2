@@ -366,9 +366,9 @@ public class SocketsTCPServer : MonoBehaviour
         }
     }
 
-    void BroadcastMesssage(string player, string message)
+    void BroadcastMessage(string player, string message)
     {
-        string text = "CHAT:" + player + message;
+        string text = "CHAT:" + player + ": " + message;
         Socket[] targets;
         lock (m_clients)
         {
@@ -412,9 +412,15 @@ public class SocketsTCPServer : MonoBehaviour
         {
             string message = text.Substring("CHAT:".Length).Trim();
 
-            string playerName = "TestName"; //Still have to figure out how to separate name from the message
+            string playerName = "ERRORNoNameFound";
 
-            BroadcastMesssage(playerName, message);
+
+            if (m_playerNames.TryGetValue(from, out string name)) 
+            {
+                playerName = name;
+            }
+
+            BroadcastMessage(playerName, message);
         }
         // your code here
     }
