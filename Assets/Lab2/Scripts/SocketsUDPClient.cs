@@ -45,6 +45,7 @@ public class SocketsUDPClient : MonoBehaviour
     readonly List<string> m_log = new List<string>();
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
+    bool m_joinConfirmed = false;
 
     public bool IsRunning { get { return m_running; } }
 
@@ -155,7 +156,14 @@ public class SocketsUDPClient : MonoBehaviour
 
     void OnPacketReceived(byte[] data)
     {
-        Log("[CLIENT] Received: " + Encoding.UTF8.GetString(data));
+        string text = Encoding.UTF8.GetString(data);
+
+        Log("[CLIENT] Received: " + text);
+
+        if (text == "JOINED:" + userName)
+        {
+            m_joinConfirmed = true;
+        }
     }
 
     void StartThread(ThreadStart work)
@@ -194,21 +202,77 @@ public class SocketsUDPClient : MonoBehaviour
     void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, Screen.width - 20, Screen.height - 20));
-        GUILayout.Label("UDP CLIENT   port " + port + "   name " + userName);
 
-        GUILayout.BeginHorizontal();
+        GUILayout.Label("UDP CLIENT");
+
+        GUILayout.Space(10);
+
         if (!m_running)
         {
-            GUILayout.Label("Server IP:", GUILayout.Width(70));
-            serverIp = GUILayout.TextField(serverIp, GUILayout.Width(120));
-            if (GUILayout.Button("Send hello", GUILayout.Width(110))) StartNetwork();
+            GUILayout.Label("Player Name:");
+
+            userName = GUILayout.TextField(userName,GUILayout.Width(200));
+
+            GUILayout.Space(5);
+
+            GUILayout.Label("Server IP:");
+
+            serverIp = GUILayout.TextField(serverIp,GUILayout.Width(200));
+
+            GUILayout.Space(10);
+
+            if (GUILayout.Button("Join Game", GUILayout.Width(150)))
+            {
+                IPAddress address;
+
+                if (string.IsNullOrWhiteSpace(userName))
+                {
+                    Log("[CLIENT] Please enter your name.");
+                }
+                else if (!IPAddress.TryParse(serverIp, out address) ||
+                         address.AddressFamily != AddressFamily.InterNetwork)
+                {
+                    Log("[CLIENT] Invalid server IP.");
+                }
+                else
+                {
+                    userName = userName.Trim();
+                    m_joinConfirmed = false;
+
+                    StartNetwork();
+                }
+            }
         }
-        else if (GUILayout.Button("Stop", GUILayout.Width(110))) Disconnect();
-        GUILayout.EndHorizontal();
+        else
+        {
+            if (m_joinConfirmed)
+            {
+                GUILayout.Label("WAITING ROOM");
+                GUILayout.Label("Joined as: " + userName);
+            }
+            else
+            {
+                GUILayout.Label("Waiting for server response...");
+            }
+
+            GUILayout.Space(10);
+
+            if (GUILayout.Button("Disconnect", GUILayout.Width(150)))
+            {
+                Disconnect();
+                m_joinConfirmed = false;
+            }
+        }
+
+        GUILayout.Space(10);
 
         lock (m_log)
-            for (int i = Mathf.Max(0, m_log.Count - 18); i < m_log.Count; i++)
+        {
+            for (int i = Mathf.Max(0, m_log.Count - 10);i < m_log.Count; i++)
+            {
                 GUILayout.Label(m_log[i]);
+            }
+        }
 
         GUILayout.EndArea();
     }
@@ -224,7 +288,9 @@ public class SocketsUDPClient : MonoBehaviour
     //  Careful with the socket type and the protocol: datagrams, not streams.
     Socket StartClient()
     {
-        return null;   // replace with the socket you created
+        Socket socket = new Socket(AddressFamily.InterNetwork,SocketType.Dgram,ProtocolType.Udp);
+
+        return socket;   // replace with the socket you created
     }
 
     // --------------------------------------------------------------------------------- TODO 2 ---
@@ -235,7 +301,7 @@ public class SocketsUDPClient : MonoBehaviour
     //  Console when it works:  [CLIENT] Ready, server is 127.0.0.1:9050
     EndPoint ServerEndPoint()
     {
-        return null;   // replace with the server address
+        return new IPEndPoint(IPAddress.Parse(serverIp),port);   // replace with the server address
     }
 
     // --------------------------------------------------------------------------------- TODO 3 ---
@@ -246,7 +312,7 @@ public class SocketsUDPClient : MonoBehaviour
     //  Console when it works: the server prints  [SERVER] Received: Player
     void OnStarted()
     {
-        // your code here
+        SendString("JOIN:" + userName);      // your code here
     }
 
     // --------------------------------------------------------------------------------- TODO 4 ---
@@ -254,7 +320,7 @@ public class SocketsUDPClient : MonoBehaviour
     //  Look it up: Socket.SendTo in the docs.
     int SendRaw(Socket socket, byte[] data, EndPoint to)
     {
-        return -1;   // replace with the number of bytes sent
+        return socket.SendTo(data, to);   // replace with the number of bytes sent
     }
 
     // --------------------------------------------------------------------------------- TODO 5 ---
@@ -264,6 +330,6 @@ public class SocketsUDPClient : MonoBehaviour
     //  Console when it works:  [CLIENT] Received: MyServer
     int ReceiveRaw(Socket socket, byte[] buffer, ref EndPoint from)
     {
-        return -1;   // replace with the number of bytes received
+        return socket.ReceiveFrom(buffer, ref from);   // replace with the number of bytes received
     }
 }

@@ -196,14 +196,39 @@ public class SocketsUDPServer : MonoBehaviour
     void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, Screen.width - 20, Screen.height - 20));
-        GUILayout.Label("UDP SERVER   port " + port + "   clients " + ClientCount);
 
-        if (!m_running) { if (GUILayout.Button("Start server", GUILayout.Width(110))) StartNetwork(); }
-        else if (GUILayout.Button("Stop", GUILayout.Width(110))) Disconnect();
+        GUILayout.Label("UDP SERVER   port " + port);
+
+        GUILayout.Space(10);
+
+        if (!m_running)
+        {
+            if (GUILayout.Button("Create Game", GUILayout.Width(150)))
+            {
+                StartNetwork();
+            }
+        }
+        else
+        {
+            GUILayout.Label("WAITING ROOM");
+            GUILayout.Label("Waiting for players...");
+            GUILayout.Label("Clients joined: " + ClientCount);
+
+            if (GUILayout.Button("Stop Server", GUILayout.Width(150)))
+            {
+                Disconnect();
+            }
+        }
+
+        GUILayout.Space(10);
 
         lock (m_log)
-            for (int i = Mathf.Max(0, m_log.Count - 18); i < m_log.Count; i++)
+        {
+            for (int i = Mathf.Max(0, m_log.Count - 10); i < m_log.Count; i++)
+            {
                 GUILayout.Label(m_log[i]);
+            }
+        }
 
         GUILayout.EndArea();
     }
@@ -221,7 +246,11 @@ public class SocketsUDPServer : MonoBehaviour
     //  Console when it works:  [SERVER] Listening on 9050
     Socket StartServer()
     {
-        return null;   // replace with the socket you prepared
+        Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+        socket.Bind(new IPEndPoint(IPAddress.Any, port));
+
+        return socket;   // replace with the socket you prepared
     }
 
     // --------------------------------------------------------------------------------- TODO 2 ---
@@ -231,7 +260,7 @@ public class SocketsUDPServer : MonoBehaviour
     //  socket does not remember anybody (slide 10).
     int SendRaw(Socket socket, byte[] data, EndPoint to)
     {
-        return -1;   // replace with the number of bytes sent
+        return socket.SendTo(data, to);   // replace with the number of bytes sent
     }
 
     // --------------------------------------------------------------------------------- TODO 3 ---
@@ -241,7 +270,7 @@ public class SocketsUDPServer : MonoBehaviour
     //  passed with 'ref'. Pass it along as it is, do not create a new one here.
     int ReceiveRaw(Socket socket, byte[] buffer, ref EndPoint from)
     {
-        return -1;   // replace with the number of bytes received
+        return socket.ReceiveFrom(buffer, ref from);   // replace with the number of bytes received
     }
 
     // --------------------------------------------------------------------------------- TODO 4 ---
@@ -260,5 +289,29 @@ public class SocketsUDPServer : MonoBehaviour
         Log("[SERVER] Received: " + text + " from " + from);
 
         // your code here (a and b)
+        if (text.StartsWith("JOIN:"))
+        {
+            string playerName =
+                text.Substring("JOIN:".Length).Trim();
+
+            if (string.IsNullOrEmpty(playerName))
+                return;
+
+            bool isNewClient;
+
+            lock (m_knownClients)
+            {
+                isNewClient = m_knownClients.Add(from);
+            }
+
+            if (isNewClient)
+            {
+                Log("[SERVER] New client: " + from);
+            }
+
+            Log("[SERVER] Player joined: " + playerName);
+
+            SendString("JOINED:" + playerName, from);
+        }
     }
 }
