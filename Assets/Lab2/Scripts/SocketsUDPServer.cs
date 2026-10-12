@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -314,6 +315,23 @@ public class SocketsUDPServer : MonoBehaviour
         Broadcast(message);
     }
 
+
+    void BroadcastMessage(string player, string message) 
+    {
+        string text = "CHAT:" + player + ": " + message;
+        EndPoint[] targets;
+
+        lock(m_knownClients)
+        {
+            targets = m_knownClients.ToArray();
+
+        }
+        foreach (EndPoint target in targets)
+        {
+            SendString(text, target);
+        }
+
+    }
     void OnPacketReceived(byte[] data, EndPoint from)
     {
         string text = Encoding.UTF8.GetString(data);
@@ -345,6 +363,23 @@ public class SocketsUDPServer : MonoBehaviour
 
             BroadcastPlayerList();
         }
+        else if (text.StartsWith("CHAT:"))
+        {
+            string message = text.Substring("CHAT:".Length).Trim();
+
+            string playerName = "ERRORNoNameFound";
+
+            if (m_playerNames.TryGetValue(from, out string name)) 
+            {
+                playerName = name;
+            }
+
+            BroadcastMessage(playerName, message);
+
+
+        }
+
+
     }
 
 }

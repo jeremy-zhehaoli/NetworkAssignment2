@@ -47,6 +47,8 @@ public class SocketsUDPClient : MonoBehaviour
     volatile bool m_running;
     bool m_joinConfirmed = false;
 
+    //Chat
+    public string messageInput = "";
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -117,7 +119,11 @@ public class SocketsUDPClient : MonoBehaviour
     {
         SendPacket(Encoding.UTF8.GetBytes(text));
     }
-
+    public void SendChat()
+    {
+        SendString("CHAT:" + messageInput);
+        messageInput = "";
+    }
     void ReceiveLoop()
     {
         byte[] buffer = new byte[MaxPacketSize];
@@ -249,6 +255,13 @@ public class SocketsUDPClient : MonoBehaviour
             {
                 GUILayout.Label("WAITING ROOM");
                 GUILayout.Label("Joined as: " + userName);
+
+                GUILayout.Label("CHAT");
+                messageInput = GUILayout.TextField(messageInput);
+                if (GUILayout.Button("Send", GUILayout.Width(150)))
+                {
+                    SendChat();
+                }
             }
             else
             {
