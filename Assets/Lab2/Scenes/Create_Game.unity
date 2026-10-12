@@ -342,6 +342,7 @@ MonoBehaviour:
   serverName: MyServer
   autoStart: 1
   m_cube: {fileID: 1776900179}
+  m_secondsBetweenUpdate: 0.01
 --- !u!1 &1776900174
 GameObject:
   m_ObjectHideFlags: 0

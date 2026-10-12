@@ -8,7 +8,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
+  - enabled: 0
     path: Assets/Lab2/Scenes/Create_Game.unity
     guid: 702626274dd0f1347bfa8ee74c9274e3
   - enabled: 0
@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Lab2/Scenes/S_UDP_Server.unity
     guid: 720106545d7b9cf4d9afb4b452bc7d23
+  - enabled: 0
+    path: Assets/Lab2/Scenes/Join_Game_UDP.unity
+    guid: f56dc9daed30bfa4cb446180159ef446
+  - enabled: 1
+    path: Assets/Lab2/Scenes/Create_Game_UDP.unity
+    guid: 0a17e253ec60f264f9204f7bc9266aeb
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

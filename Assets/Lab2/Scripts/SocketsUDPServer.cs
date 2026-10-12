@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -50,6 +51,11 @@ public class SocketsUDPServer : MonoBehaviour
     readonly List<string> m_log = new List<string>();
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
+
+    //Cube
+    public Transform m_cube;
+    private float m_rotationTimer;
+    [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
 
     public bool IsRunning { get { return m_running; } }
     public int ClientCount { get { lock (m_knownClients) return m_knownClients.Count; } }
@@ -92,7 +98,16 @@ public class SocketsUDPServer : MonoBehaviour
     {
         Packet packet;
         while (m_inbox.TryDequeue(out packet))
+        {
             OnPacketReceived(packet.data, packet.from);
+        }
+        m_rotationTimer += Time.deltaTime;
+
+        if (m_rotationTimer >= m_secondsBetweenUpdate)
+        {
+            m_rotationTimer = 0f;
+            BroadcastRotation();
+        }
     }
 
     void ServerThread()
@@ -331,6 +346,21 @@ public class SocketsUDPServer : MonoBehaviour
             SendString(text, target);
         }
 
+    }
+    void BroadcastRotation()
+    {
+        Vector3 rotation = m_cube.transform.rotation.eulerAngles;
+        string text = "ROT:" + rotation.x + "," + rotation.y + "," + rotation.z; ;
+        EndPoint[] targets;
+        lock (m_knownClients)
+        {
+            targets = m_knownClients.ToArray();
+        }
+
+        foreach (EndPoint c in targets)
+        {
+            SendString(text, c);
+        }
     }
     void OnPacketReceived(byte[] data, EndPoint from)
     {

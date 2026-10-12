@@ -49,6 +49,11 @@ public class SocketsUDPClient : MonoBehaviour
 
     //Chat
     public string messageInput = "";
+
+    //Cube
+    [SerializeField] Transform m_cube;
+    Quaternion recievedRot;
+
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -84,8 +89,9 @@ public class SocketsUDPClient : MonoBehaviour
     void Update()
     {
         byte[] data;
-        while (m_inbox.TryDequeue(out data))
-            OnPacketReceived(data);
+        while (m_inbox.TryDequeue(out data)) { OnPacketReceived(data); }
+
+        m_cube.transform.rotation = recievedRot;
     }
 
     void ClientThread()
@@ -164,11 +170,24 @@ public class SocketsUDPClient : MonoBehaviour
     {
         string text = Encoding.UTF8.GetString(data);
 
-        Log("[CLIENT] Received: " + text);
+        if (!text.StartsWith("ROT:")) 
+        {
+            Log("[CLIENT] Received: " + text);
+        }
+
 
         if (text.StartsWith("PLAYERS:"))
         {
             m_joinConfirmed = true;
+        }
+        else if (text.StartsWith("ROT:"))
+        {
+            string rotationText = text.Replace("ROT:", "");
+            string[] coordinates = rotationText.Split(',');
+            if (float.TryParse(coordinates[0], out float x) && float.TryParse(coordinates[1], out float y) && float.TryParse(coordinates[2], out float z))
+            {
+                recievedRot = Quaternion.Euler(x, y, z);
+            }
         }
     }
 
