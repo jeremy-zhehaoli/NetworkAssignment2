@@ -51,6 +51,8 @@ public class SocketsTCPClient : MonoBehaviour
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
     string m_playerList = "";
+    string m_roomInfo = "";
+    string m_joinError = "";
 
     //Chat
     public string messageInput;
@@ -81,6 +83,7 @@ public class SocketsTCPClient : MonoBehaviour
         if (!m_running) return;
         m_running = false;
         m_playerList = "";
+        m_roomInfo = "";
 
         CloseSocket(m_connection); m_connection = null;
 
@@ -185,6 +188,24 @@ public class SocketsTCPClient : MonoBehaviour
     void OnPacketReceived(byte[] data)
     {
         string text = Encoding.UTF8.GetString(data);
+
+        if (text.StartsWith("ROOM:"))
+        {
+            m_roomInfo = text.Substring("ROOM:".Length);
+        }
+
+
+        if (text.StartsWith("FULL:"))
+        {
+            m_joinError = text.Substring("FULL:".Length).Trim();
+
+            Log("[CLIENT] Join rejected: " + m_joinError);
+
+            Disconnect();
+
+            return;
+        }
+
         if (!text.StartsWith("ROT:")) 
         {
             Log("[CLIENT] Received: " + text);
@@ -267,12 +288,20 @@ public class SocketsTCPClient : MonoBehaviour
 
             if (GUILayout.Button("Join Game", GUILayout.Width(150)))
             {
+                m_joinError = "";
                 StartNetwork();
+            }
+
+            if (!string.IsNullOrEmpty(m_joinError))
+            {
+                GUILayout.Space(10);
+                GUILayout.Label("Join failed: " + m_joinError);
             }
         }
         else
         {
             GUILayout.Label("WAITING ROOM");
+            GUILayout.Label("Players: " + (string.IsNullOrEmpty(m_roomInfo) ? "Loading..." : m_roomInfo));
             GUILayout.Label("Connecting / Connected to " + serverIp);
 
             GUILayout.Space(10);

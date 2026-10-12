@@ -41,6 +41,7 @@ public class SocketsTCPServer : MonoBehaviour
     public int port = 9050;
     public string serverName = "MyServer";
     public bool autoStart = true;
+    public int maxPlayers = 3;
 
     // =============================================================================================
     //  GIVEN CODE - nothing to modify until the TODO area
@@ -395,6 +396,27 @@ public class SocketsTCPServer : MonoBehaviour
         {
             SendString(message, target);
         }
+
+        BroadcastRoomInfo();
+    }
+
+    void BroadcastRoomInfo()
+    {
+        Socket[] targets;
+        int currentPlayers;
+
+        lock (m_playerNames)
+        {
+            currentPlayers = m_playerNames.Count;
+            targets = new List<Socket>(m_playerNames.Keys).ToArray();
+        }
+
+        string message = "ROOM:" + currentPlayers + "/" + Mathf.Max(1, maxPlayers);
+
+        foreach (Socket target in targets)
+        {
+            SendString(message, target);
+        }
     }
 
     void BroadcastMessage(string player, string message)
@@ -434,9 +456,30 @@ public class SocketsTCPServer : MonoBehaviour
         if (string.IsNullOrWhiteSpace(playerName))
             return;
 
+        bool roomFull = false;
+
         lock (m_playerNames)
         {
-            m_playerNames[socket] = playerName;
+            bool alreadyJoined = m_playerNames.ContainsKey(socket);
+
+            if (!alreadyJoined && m_playerNames.Count >= Mathf.Max(1, maxPlayers))
+            {
+                roomFull = true;
+            }
+            else
+            {
+                m_playerNames[socket] = playerName;
+            }
+        }
+
+        if (roomFull)
+        {
+            Log("[SERVER] Room is full. Rejected: " + playerName);
+
+            SendString("FULL:Room is full", socket);
+
+            CloseSocket(socket);
+            return;
         }
 
         Log("[SERVER] Player joined: " + playerName);

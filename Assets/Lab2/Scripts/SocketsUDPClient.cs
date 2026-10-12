@@ -47,6 +47,8 @@ public class SocketsUDPClient : MonoBehaviour
     volatile bool m_running;
     bool m_joinConfirmed = false;
     string m_playerList = "";
+    string m_roomInfo = "";
+    string m_joinError = "";
 
     //Chat
     public string messageInput = "";
@@ -86,6 +88,7 @@ public class SocketsUDPClient : MonoBehaviour
         if (!m_running) return;
         m_running = false;
         m_joinConfirmed = false;
+        m_roomInfo = "";
         m_playerList = "";
 
         if (m_socket != null) { try { m_socket.Close(); } catch { } m_socket = null; }
@@ -203,7 +206,25 @@ public class SocketsUDPClient : MonoBehaviour
     {
         string text = Encoding.UTF8.GetString(data);
 
+        if (text.StartsWith("ROOM:"))
+        {
+            m_roomInfo = text.Substring("ROOM:".Length);
+        }
+
         m_lastHeardFromServer = Time.realtimeSinceStartup;
+
+        if (text.StartsWith("FULL:"))
+        {
+            m_joinError = text.Substring("FULL:".Length).Trim();
+
+            Log("[CLIENT] Join rejected: " + m_joinError);
+
+            m_joinConfirmed = false;
+
+            Disconnect();
+
+            return;
+        }
 
         if (!text.StartsWith("ROT:")) 
         {
@@ -284,6 +305,8 @@ public class SocketsUDPClient : MonoBehaviour
 
             if (GUILayout.Button("Join Game", GUILayout.Width(150)))
             {
+                m_joinError = "";
+
                 IPAddress address;
 
                 if (string.IsNullOrWhiteSpace(userName))
@@ -303,6 +326,11 @@ public class SocketsUDPClient : MonoBehaviour
                     StartNetwork();
                 }
             }
+            if (!string.IsNullOrEmpty(m_joinError))
+            {
+                GUILayout.Space(10);
+                GUILayout.Label("Join failed: " + m_joinError);
+            }
         }
         else
         {
@@ -310,6 +338,7 @@ public class SocketsUDPClient : MonoBehaviour
             {
                 GUILayout.Label("WAITING ROOM");
                 GUILayout.Label("Joined as: " + userName);
+                GUILayout.Label("Players: " + (string.IsNullOrEmpty(m_roomInfo) ? "Loading..." : m_roomInfo));
 
                 GUILayout.Space(10);
                 GUILayout.Label("PLAYERS:");
