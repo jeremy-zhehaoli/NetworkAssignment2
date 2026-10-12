@@ -50,6 +50,7 @@ public class SocketsTCPClient : MonoBehaviour
     readonly List<string> m_log = new List<string>();
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
+    string m_playerList = "";
 
     //Chat
     public string messageInput;
@@ -79,6 +80,7 @@ public class SocketsTCPClient : MonoBehaviour
     {
         if (!m_running) return;
         m_running = false;
+        m_playerList = "";
 
         CloseSocket(m_connection); m_connection = null;
 
@@ -185,10 +187,15 @@ public class SocketsTCPClient : MonoBehaviour
         string text = Encoding.UTF8.GetString(data);
         if (!text.StartsWith("ROT:")) 
         {
-            Log("[CLIENT] Received: " + Encoding.UTF8.GetString(data));
+            Log("[CLIENT] Received: " + text);
         }//The logs from the rotation would saturate the screen, it's not important
-
-        if (text.StartsWith("ROT:"))
+        
+        if (text.StartsWith("PLAYERS:"))
+        {
+            m_playerList = text.Substring("PLAYERS:".Length);
+        }
+        
+        else if (text.StartsWith("ROT:"))
         {
             string rotationText = text.Replace("ROT:", "");
             string[] coordinates = rotationText.Split(',');
@@ -267,6 +274,27 @@ public class SocketsTCPClient : MonoBehaviour
         {
             GUILayout.Label("WAITING ROOM");
             GUILayout.Label("Connecting / Connected to " + serverIp);
+
+            GUILayout.Space(10);
+            GUILayout.Label("PLAYERS:");
+
+            if (string.IsNullOrEmpty(m_playerList))
+            {
+                GUILayout.Label("No players");
+            }
+            else
+            {
+                string[] players = m_playerList.Split(',');
+
+                foreach (string player in players)
+                {
+                    if (!string.IsNullOrWhiteSpace(player))
+                    {
+                        GUILayout.Label("- " + player.Trim());
+                    }
+                }
+            }
+            GUILayout.Space(10);
 
             GUILayout.Label("CHAT");
             messageInput = GUILayout.TextField(messageInput);

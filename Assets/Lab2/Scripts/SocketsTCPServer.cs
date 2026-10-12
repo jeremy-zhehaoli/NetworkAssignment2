@@ -106,15 +106,25 @@ public class SocketsTCPServer : MonoBehaviour
     void Update()
     {
         Packet packet;
-        while (m_inbox.TryDequeue(out packet)) { OnPacketReceived(packet.data, packet.from); }
-
-
-        m_rotationTimer += Time.deltaTime;
-
-        if (m_rotationTimer >= m_secondsBetweenUpdate)
+        while (m_inbox.TryDequeue(out packet))
         {
-            m_rotationTimer = 0f;
-            BroadcastRotation();
+            if (packet.data == null)
+            {
+                bool removed;
+                lock (m_playerNames)
+                {
+                    removed = m_playerNames.Remove(packet.from);
+                }
+
+                if (removed)
+                {
+                    BroadcastPlayerList();
+                }
+            }
+            else
+            {
+                OnPacketReceived(packet.data, packet.from);
+            }
         }
     }
 
@@ -153,8 +163,16 @@ public class SocketsTCPServer : MonoBehaviour
     void ClientThread(Socket client)
     {
         ReceiveLoop(client);
-        lock (m_clients) m_clients.Remove(client);
-        m_playerNames.Remove(client);
+        lock (m_clients)
+        { 
+            m_clients.Remove(client); 
+        }
+        m_inbox.Enqueue(new Packet)
+        {
+            data = null,
+            from = client
+        };
+
         Log("[SERVER] Client disconnected");
         CloseSocket(client);
     }

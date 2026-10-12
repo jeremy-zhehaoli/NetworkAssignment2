@@ -46,6 +46,7 @@ public class SocketsUDPClient : MonoBehaviour
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
     bool m_joinConfirmed = false;
+    string m_playerList = "";
 
     //Chat
     public string messageInput = "";
@@ -72,6 +73,8 @@ public class SocketsUDPClient : MonoBehaviour
     public void StartNetwork()
     {
         if (m_running) return;
+        m_joinConfirmed = false;
+        m_playerList = "";
         m_running = true;
         m_pingTimer = 0f;
         m_lastHeardFromServer = Time.realtimeSinceStartup;
@@ -82,6 +85,8 @@ public class SocketsUDPClient : MonoBehaviour
     {
         if (!m_running) return;
         m_running = false;
+        m_joinConfirmed = false;
+        m_playerList = "";
 
         if (m_socket != null) { try { m_socket.Close(); } catch { } m_socket = null; }
 
@@ -208,6 +213,7 @@ public class SocketsUDPClient : MonoBehaviour
 
         if (text.StartsWith("PLAYERS:"))
         {
+            m_playerList = text.Substring("PLAYERS:".Length);
             m_joinConfirmed = true;
         }
         else if (text.StartsWith("ROT:"))
@@ -304,6 +310,28 @@ public class SocketsUDPClient : MonoBehaviour
             {
                 GUILayout.Label("WAITING ROOM");
                 GUILayout.Label("Joined as: " + userName);
+
+                GUILayout.Space(10);
+                GUILayout.Label("PLAYERS:");
+
+                if (string.IsNullOrEmpty(m_playerList))
+                {
+                    GUILayout.Label("No players");
+                }
+                else
+                {
+                    string[] players = m_playerList.Split(',');
+
+                    foreach (string player in players)
+                    {
+                        if (!string.IsNullOrWhiteSpace(player))
+                        {
+                            GUILayout.Label("- " + player.Trim());
+                        }
+                    }
+                }
+                GUILayout.Space(10);
+
 
                 GUILayout.Label("CHAT");
                 messageInput = GUILayout.TextField(messageInput);
