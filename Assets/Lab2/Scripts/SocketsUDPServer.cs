@@ -43,6 +43,7 @@ public class SocketsUDPServer : MonoBehaviour
 
     Socket m_socket;                                                       // the only socket
     readonly HashSet<EndPoint> m_knownClients = new HashSet<EndPoint>();   // your client list
+    readonly Dictionary<EndPoint, string> m_playerNames = new Dictionary<EndPoint, string>();
     readonly List<Thread> m_threads = new List<Thread>();
     readonly ConcurrentQueue<Packet> m_inbox = new ConcurrentQueue<Packet>();
     readonly List<string> m_log = new List<string>();
@@ -283,16 +284,45 @@ public class SocketsUDPServer : MonoBehaviour
     //  Console when it works:
     //      [SERVER] New client: 127.0.0.1:61xxx
     //      and the client prints  [CLIENT] Received: MyServer
+    
+    void Broadcast(string message)
+    {
+        EndPoint[] targets;
+
+        lock (m_knownClients)
+        {
+            targets = new List<EndPoint>(m_knownClients).ToArray();
+        }
+
+        foreach (EndPoint target in targets)
+        {
+            SendString(message, target);
+        }
+    }
+
+    void BroadcastPlayerList()
+    {
+        string[] names;
+
+        lock (m_knownClients)
+        {
+            names = new List<string>(m_playerNames.Values).ToArray();
+        }
+
+        string message ="PLAYERS:" + string.Join(",", names);
+
+        Broadcast(message);
+    }
+
     void OnPacketReceived(byte[] data, EndPoint from)
     {
         string text = Encoding.UTF8.GetString(data);
+
         Log("[SERVER] Received: " + text + " from " + from);
 
-        // your code here (a and b)
         if (text.StartsWith("JOIN:"))
         {
-            string playerName =
-                text.Substring("JOIN:".Length).Trim();
+            string playerName = text.Substring("JOIN:".Length).Trim();
 
             if (string.IsNullOrEmpty(playerName))
                 return;
@@ -302,6 +332,8 @@ public class SocketsUDPServer : MonoBehaviour
             lock (m_knownClients)
             {
                 isNewClient = m_knownClients.Add(from);
+
+                m_playerNames[from] = playerName;
             }
 
             if (isNewClient)
@@ -311,7 +343,8 @@ public class SocketsUDPServer : MonoBehaviour
 
             Log("[SERVER] Player joined: " + playerName);
 
-            SendString("JOINED:" + playerName, from);
+            BroadcastPlayerList();
         }
     }
+
 }

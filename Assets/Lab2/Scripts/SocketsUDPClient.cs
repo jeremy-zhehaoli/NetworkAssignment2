@@ -160,7 +160,7 @@ public class SocketsUDPClient : MonoBehaviour
 
         Log("[CLIENT] Received: " + text);
 
-        if (text == "JOINED:" + userName)
+        if (text.StartsWith("PLAYERS:"))
         {
             m_joinConfirmed = true;
         }
