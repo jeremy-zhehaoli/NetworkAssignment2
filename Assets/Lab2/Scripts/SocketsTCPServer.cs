@@ -142,6 +142,7 @@ public class SocketsTCPServer : MonoBehaviour
     {
         ReceiveLoop(client);
         lock (m_clients) m_clients.Remove(client);
+        m_playerNames.Remove(client);
         Log("[SERVER] Client disconnected");
         CloseSocket(client);
     }
