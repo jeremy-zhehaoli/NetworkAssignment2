@@ -54,6 +54,10 @@ public class SocketsTCPClient : MonoBehaviour
     //Chat
     public string messageInput;
 
+    //Cube
+    [SerializeField] Transform m_cube;
+    Quaternion recievedRot;
+
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -91,8 +95,9 @@ public class SocketsTCPClient : MonoBehaviour
     void Update()
     {
         byte[] data;
-        while (m_inbox.TryDequeue(out data))
-            OnPacketReceived(data);
+        while (m_inbox.TryDequeue(out data)) { OnPacketReceived(data); }
+
+        m_cube.transform.rotation = recievedRot;
     }
 
     void ClientThread()
@@ -177,7 +182,23 @@ public class SocketsTCPClient : MonoBehaviour
 
     void OnPacketReceived(byte[] data)
     {
-        Log("[CLIENT] Received: " + Encoding.UTF8.GetString(data));
+        string text = Encoding.UTF8.GetString(data);
+        if (!text.StartsWith("ROT:")) 
+        {
+            Log("[CLIENT] Received: " + Encoding.UTF8.GetString(data));
+        }//The logs from the rotation would saturate the screen, it's not important
+
+        if (text.StartsWith("ROT:"))
+        {
+            string rotationText = text.Replace("ROT:", "");
+            string[] coordinates = rotationText.Split(',');
+            if(float.TryParse(coordinates[0], out float x) && float.TryParse(coordinates[1], out float y) && float.TryParse(coordinates[2], out float z))
+            {
+                recievedRot = Quaternion.Euler(x, y, z);
+            }
+        }
+
+
     }
 
     void StartThread(ThreadStart work)

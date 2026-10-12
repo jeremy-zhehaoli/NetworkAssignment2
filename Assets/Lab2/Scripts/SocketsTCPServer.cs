@@ -61,6 +61,10 @@ public class SocketsTCPServer : MonoBehaviour
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
 
+    //Cube
+    public Transform m_cube;
+    private float m_rotationTimer;
+    [SerializeField]private float m_secondsBetweenUpdate = 0.1f;
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -102,8 +106,16 @@ public class SocketsTCPServer : MonoBehaviour
     void Update()
     {
         Packet packet;
-        while (m_inbox.TryDequeue(out packet))
-            OnPacketReceived(packet.data, packet.from);
+        while (m_inbox.TryDequeue(out packet)) { OnPacketReceived(packet.data, packet.from); }
+
+
+        m_rotationTimer += Time.deltaTime;
+
+        if (m_rotationTimer >= m_secondsBetweenUpdate)
+        {
+            m_rotationTimer = 0f;
+            BroadcastRotation();
+        }
     }
 
     void ServerThread()
@@ -381,6 +393,22 @@ public class SocketsTCPServer : MonoBehaviour
             SendString(text, c);
         }
 
+    }
+
+    void BroadcastRotation() 
+    {
+        Vector3 rotation = m_cube.transform.rotation.eulerAngles;
+        string text = "ROT:" + rotation.x + "," + rotation.y + "," + rotation.z; ;
+        Socket[] targets;
+        lock (m_clients)
+        {
+            targets = m_clients.ToArray();
+        }
+
+        foreach (Socket c in targets)
+        {
+            SendString(text, c);
+        }
     }
 
     void HandleJoin(Socket socket, string playerName)
