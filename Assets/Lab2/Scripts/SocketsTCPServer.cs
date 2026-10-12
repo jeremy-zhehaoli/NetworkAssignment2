@@ -168,11 +168,11 @@ public class SocketsTCPServer : MonoBehaviour
         { 
             m_clients.Remove(client); 
         }
-        m_inbox.Enqueue(new Packet)
+        m_inbox.Enqueue(new Packet
         {
             data = null,
             from = client
-        };
+        });
 
         Log("[SERVER] Client disconnected");
         CloseSocket(client);
