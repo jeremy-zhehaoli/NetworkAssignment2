@@ -54,6 +54,12 @@ public class SocketsUDPClient : MonoBehaviour
     [SerializeField] Transform m_cube;
     Quaternion recievedRot;
 
+    //Ping / timeout
+    [SerializeField] float m_pingInterval = 1f;     // send PING: every second
+    [SerializeField] float m_serverTimeout = 5f;    // nothing from the server in this time: it is gone
+    float m_pingTimer;
+    float m_lastHeardFromServer;
+
     public bool IsRunning { get { return m_running; } }
 
     void Start()
@@ -67,6 +73,8 @@ public class SocketsUDPClient : MonoBehaviour
     {
         if (m_running) return;
         m_running = true;
+        m_pingTimer = 0f;
+        m_lastHeardFromServer = Time.realtimeSinceStartup;
         StartThread(ClientThread);
     }
 
@@ -92,6 +100,26 @@ public class SocketsUDPClient : MonoBehaviour
         while (m_inbox.TryDequeue(out data)) { OnPacketReceived(data); }
 
         m_cube.transform.rotation = recievedRot;
+
+        if (m_running)
+        {
+            // Keep telling the server we are still here
+            m_pingTimer += Time.deltaTime;
+
+            if (m_pingTimer >= m_pingInterval)
+            {
+                m_pingTimer = 0f;
+                SendString("PING:");
+            }
+
+            // Same trick the other way: if the server stops sending, it is gone
+            if (Time.realtimeSinceStartup - m_lastHeardFromServer > m_serverTimeout)
+            {
+                Log("[CLIENT] Server not responding, disconnected");
+                Disconnect();
+                m_joinConfirmed = false;
+            }
+        }
     }
 
     void ClientThread()
@@ -169,6 +197,8 @@ public class SocketsUDPClient : MonoBehaviour
     void OnPacketReceived(byte[] data)
     {
         string text = Encoding.UTF8.GetString(data);
+
+        m_lastHeardFromServer = Time.realtimeSinceStartup;
 
         if (!text.StartsWith("ROT:")) 
         {
@@ -291,6 +321,7 @@ public class SocketsUDPClient : MonoBehaviour
 
             if (GUILayout.Button("Disconnect", GUILayout.Width(150)))
             {
+                SendString("LEAVE:");
                 Disconnect();
                 m_joinConfirmed = false;
             }

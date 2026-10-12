@@ -46,6 +46,7 @@ public class SocketsUDPServer : MonoBehaviour
     Socket m_socket;                                                       // the only socket
     readonly HashSet<EndPoint> m_knownClients = new HashSet<EndPoint>();   // your client list
     readonly Dictionary<EndPoint, string> m_playerNames = new Dictionary<EndPoint, string>();
+    readonly Dictionary<EndPoint, float> m_lastHeard = new Dictionary<EndPoint, float>();   // last time each client wrote
     readonly List<Thread> m_threads = new List<Thread>();
     readonly ConcurrentQueue<Packet> m_inbox = new ConcurrentQueue<Packet>();
     readonly List<string> m_log = new List<string>();
@@ -56,6 +57,10 @@ public class SocketsUDPServer : MonoBehaviour
     public Transform m_cube;
     private float m_rotationTimer;
     [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
+
+    //Timeout
+    [SerializeField] private float m_clientTimeout = 5f;   // nothing from a client in this time: remove it
+    private float m_timeoutCheckTimer;
 
     public bool IsRunning { get { return m_running; } }
     public int ClientCount { get { lock (m_knownClients) return m_knownClients.Count; } }
@@ -83,7 +88,12 @@ public class SocketsUDPServer : MonoBehaviour
         // No Shutdown() here: UDP has no connection to shut down.
         if (m_socket != null) { try { m_socket.Close(); } catch { } m_socket = null; }
 
-        lock (m_knownClients) m_knownClients.Clear();
+        lock (m_knownClients)
+        {
+            m_knownClients.Clear();
+            m_playerNames.Clear();
+            m_lastHeard.Clear();
+        }
 
         Thread[] threads;
         lock (m_threads) { threads = m_threads.ToArray(); m_threads.Clear(); }
@@ -107,6 +117,14 @@ public class SocketsUDPServer : MonoBehaviour
         {
             m_rotationTimer = 0f;
             BroadcastRotation();
+        }
+
+        m_timeoutCheckTimer += Time.deltaTime;
+
+        if (m_timeoutCheckTimer >= 0.5f)
+        {
+            m_timeoutCheckTimer = 0f;
+            CheckTimeouts();
         }
     }
 
@@ -366,7 +384,23 @@ public class SocketsUDPServer : MonoBehaviour
     {
         string text = Encoding.UTF8.GetString(data);
 
+        // Any packet from a known client means it is still there
+        lock (m_knownClients)
+        {
+            if (m_knownClients.Contains(from))
+                m_lastHeard[from] = Time.realtimeSinceStartup;
+        }
+
+        if (text.StartsWith("PING:"))
+            return;
+
         Log("[SERVER] Received: " + text + " from " + from);
+
+        if (text.StartsWith("LEAVE:"))
+        {
+            RemoveClient(from, "left");
+            return;
+        }
 
         if (text.StartsWith("JOIN:"))
         {
@@ -382,6 +416,7 @@ public class SocketsUDPServer : MonoBehaviour
                 isNewClient = m_knownClients.Add(from);
 
                 m_playerNames[from] = playerName;
+                m_lastHeard[from] = Time.realtimeSinceStartup;
             }
 
             if (isNewClient)
@@ -410,6 +445,49 @@ public class SocketsUDPServer : MonoBehaviour
         }
 
 
+    }
+
+    // Removes every client we have not heard from in m_clientTimeout seconds
+    // (closed window or crash: no LEAVE arrives)
+    void CheckTimeouts()
+    {
+        float now = Time.realtimeSinceStartup;
+        List<EndPoint> expired = new List<EndPoint>();
+
+        lock (m_knownClients)
+        {
+            foreach (KeyValuePair<EndPoint, float> entry in m_lastHeard)
+            {
+                if (now - entry.Value > m_clientTimeout)
+                    expired.Add(entry.Key);
+            }
+        }
+
+        foreach (EndPoint client in expired)
+        {
+            RemoveClient(client, "timed out");
+        }
+    }
+
+    void RemoveClient(EndPoint client, string reason)
+    {
+        string playerName;
+        bool removed;
+
+        lock (m_knownClients)
+        {
+            removed = m_knownClients.Remove(client);
+            m_playerNames.TryGetValue(client, out playerName);
+            m_playerNames.Remove(client);
+            m_lastHeard.Remove(client);
+        }
+
+        if (!removed)
+            return;
+
+        Log("[SERVER] Player " + reason + ": " + playerName + " (" + client + ")");
+
+        BroadcastPlayerList();
     }
 
 }
