@@ -151,8 +151,10 @@ MonoBehaviour:
   port: 9050
   serverName: MyServer
   autoStart: 0
+  maxPlayers: 2
   m_cube: {fileID: 516879146}
   m_secondsBetweenUpdate: 0.01
+  m_clientTimeout: 5
 --- !u!4 &167353101
 Transform:
   m_ObjectHideFlags: 0

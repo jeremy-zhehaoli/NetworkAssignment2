@@ -388,7 +388,7 @@ public class SocketsUDPClient : MonoBehaviour
 
         lock (m_log)
         {
-            for (int i = Mathf.Max(0, m_log.Count - 10);i < m_log.Count; i++)
+            for (int i = Mathf.Max(0, m_log.Count - 4);i < m_log.Count; i++)
             {
                 GUILayout.Label(m_log[i]);
             }
