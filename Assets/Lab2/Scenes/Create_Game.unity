@@ -341,6 +341,7 @@ MonoBehaviour:
   port: 9050
   serverName: MyServer
   autoStart: 1
+  maxPlayers: 2
   m_cube: {fileID: 1776900179}
   m_secondsBetweenUpdate: 0.01
 --- !u!1 &1776900174

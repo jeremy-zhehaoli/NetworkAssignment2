@@ -127,6 +127,13 @@ public class SocketsTCPServer : MonoBehaviour
                 OnPacketReceived(packet.data, packet.from);
             }
         }
+        m_rotationTimer += Time.deltaTime;
+
+        if (m_rotationTimer >= m_secondsBetweenUpdate) 
+        {
+            m_rotationTimer = 0f;
+            BroadcastRotation();
+        }
     }
 
     void ServerThread()
