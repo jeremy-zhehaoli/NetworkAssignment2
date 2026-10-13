@@ -154,6 +154,8 @@ MonoBehaviour:
   autoStart: 0
   messageInput: 
   m_cube: {fileID: 817341405}
+  m_pingInterval: 1
+  m_serverTimeout: 5
 --- !u!4 &167353101
 Transform:
   m_ObjectHideFlags: 0
@@ -265,7 +267,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 817341400}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f0af2414b13c01d4aa7ddd8de6ed3d24, type: 3}
   m_Name: 
