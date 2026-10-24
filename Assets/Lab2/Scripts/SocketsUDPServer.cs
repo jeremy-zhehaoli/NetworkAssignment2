@@ -36,6 +36,9 @@ public class SocketsUDPServer : MonoBehaviour
     public bool autoStart = true;
     public int maxPlayers = 3;
 
+    private bool startRequested = false;
+    private bool gameStarted = false;
+
     // =============================================================================================
     //  GIVEN CODE - nothing to modify until the TODO area
     // =============================================================================================
@@ -250,12 +253,21 @@ public class SocketsUDPServer : MonoBehaviour
             GUILayout.Label("Waiting for players...");
             GUILayout.Label("Clients joined: " + ClientCount);
 
+            GUILayout.Space(10);
+
+            if (!gameStarted && GUILayout.Button("START GAME", GUILayout.Width(170), GUILayout.Height(40)))
+            {
+                startRequested = true;
+            }
+
+            GUILayout.Space(10);
+
             if (GUILayout.Button("Stop Server", GUILayout.Width(150)))
             {
                 Disconnect();
             }
         }
-
+              
         GUILayout.Space(10);
 
         lock (m_log)
