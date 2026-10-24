@@ -27,6 +27,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 
 public class SocketsUDPServer : MonoBehaviour
@@ -114,6 +115,17 @@ public class SocketsUDPServer : MonoBehaviour
         while (m_inbox.TryDequeue(out packet))
         {
             OnPacketReceived(packet.data, packet.from);
+        }
+        if (startRequested && !gameStarted && m_running && m_socket != null)
+        {
+            startRequested = false;
+            gameStarted = true;
+
+            Broadcast("START_THE_GAME");
+
+            Debug.Log("[SERVER] Starting GameScene");
+
+            SceneManager.LoadScene("GameScene");
         }
         m_rotationTimer += Time.deltaTime;
 
@@ -255,7 +267,7 @@ public class SocketsUDPServer : MonoBehaviour
 
             GUILayout.Space(10);
 
-            if (!gameStarted && GUILayout.Button("START GAME", GUILayout.Width(170), GUILayout.Height(40)))
+            if (m_running && !gameStarted && GUILayout.Button("START GAME", GUILayout.Width(170), GUILayout.Height(40)))
             {
                 startRequested = true;
             }
