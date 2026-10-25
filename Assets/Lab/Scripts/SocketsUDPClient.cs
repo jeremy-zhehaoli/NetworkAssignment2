@@ -24,6 +24,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class SocketsUDPClient : MonoBehaviour
 {
@@ -31,6 +32,8 @@ public class SocketsUDPClient : MonoBehaviour
     public int port = 9050;
     public string userName = "Player";
     public bool autoStart = true;
+
+    private bool gameStarted = false;
 
     // =============================================================================================
     //  GIVEN CODE - nothing to modify until the TODO area
@@ -100,7 +103,45 @@ public class SocketsUDPClient : MonoBehaviour
         Log("[CLIENT] Stopped");
     }
 
-    void OnDestroy() { Disconnect(); }
+    void Awake()
+    {
+        DontDestroyOnLoad(gameObject);
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        Disconnect();
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name != "GameScene")
+            return;
+
+        GameObject cubeObject = GameObject.Find("NetworkCube");
+
+        if (cubeObject != null)
+        {
+            m_cube = cubeObject.transform;
+
+            CubeRotate rotateScript = cubeObject.GetComponent<CubeRotate>();
+
+            if (rotateScript != null)
+            {
+                rotateScript.enabled = false;
+            }
+
+            Debug.Log("[CLIENT] GameScene Cube found!");
+        }
+        else
+        {
+            m_cube = null;
+            Debug.LogError("[CLIENT] NetworkCube not found!");
+        }
+    }
 
     void Update()
     {
@@ -212,6 +253,20 @@ public class SocketsUDPClient : MonoBehaviour
         }
 
         m_lastHeardFromServer = Time.realtimeSinceStartup;
+
+        if (text == "START_THE_GAME")
+        {
+            if (!gameStarted)
+            {
+                gameStarted = true;
+
+                Debug.Log("[CLIENT] Starting GameScene");
+
+                SceneManager.LoadScene("GameScene");
+            }
+
+            return;
+        }
 
         if (text.StartsWith("FULL:"))
         {
