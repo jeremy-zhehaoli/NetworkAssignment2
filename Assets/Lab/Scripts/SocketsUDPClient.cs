@@ -130,7 +130,7 @@ public class SocketsUDPClient : MonoBehaviour
 
         if (cubeObject != null)
         {
-            m_cube = cubeObject.transform;
+            m_localPlayerCube = cubeObject.transform;
 
             CubeRotate rotateScript = cubeObject.GetComponent<CubeRotate>();
 
@@ -143,7 +143,7 @@ public class SocketsUDPClient : MonoBehaviour
         }
         else
         {
-            m_cube = null;
+            m_localPlayerCube = null;
             Debug.LogError("[CLIENT] NetworkCube not found!");
         }
     }
@@ -261,25 +261,23 @@ public class SocketsUDPClient : MonoBehaviour
         m_lastHeardFromServer = Time.realtimeSinceStartup;
 
         MsgType type = Serializer.GetMessageType(data);
-        switch (type)
-        if (text == "START_THE_GAME")
-        {
-            if (!gameStarted)
-            {
-                gameStarted = true;
-
-                Debug.Log("[CLIENT] Starting GameScene");
-
-                SceneManager.LoadScene("GameScene");
-            }
-
-            return;
-        }
-
-        if (text.StartsWith("FULL:"))
+        switch (type) 
         {
             case MsgType.Text:
                 string text = Serializer.DeserializeText(data);
+                if (text == "START_THE_GAME")
+                {
+                    if (!gameStarted)
+                    {
+                        gameStarted = true;
+
+                        Debug.Log("[CLIENT] Starting GameScene");
+
+                        SceneManager.LoadScene("GameScene");
+                    }
+
+                    return;
+                }
                 if (text.StartsWith("ROOM:"))
                 {
                     m_roomInfo = text.Substring("ROOM:".Length);
@@ -307,22 +305,22 @@ public class SocketsUDPClient : MonoBehaviour
                 if (text.StartsWith("CHAT:"))
                 {
                     m_chat.Add(text.Substring("CHAT:".Length));
-                    if (m_chat.Count > 5) 
+                    if (m_chat.Count > 5)
                     {
                         m_chat.RemoveAt(0);
                     }
-                    break;                                       
+                    break;
                 }
                 break;
             case MsgType.Player:
 
                 PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
-                 ApplyPlayerVars(dto);
+                ApplyPlayerVars(dto);
                 break;
             default:
                 break;
-        }
 
+        }
 
     }
     void ApplyPlayerVars(PlayerVarsDTO dto)
