@@ -27,8 +27,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using UnityEngine.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class SocketsUDPServer : MonoBehaviour
 {
@@ -108,7 +108,38 @@ public class SocketsUDPServer : MonoBehaviour
         Log("[SERVER] Stopped");
     }
 
-    void OnDestroy() { Disconnect(); }
+    void Awake()
+    {
+        DontDestroyOnLoad(gameObject);
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        Disconnect();
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name != "GameScene")
+            return;
+
+        GameObject cubeObject = GameObject.Find("NetworkCube");
+
+        if (cubeObject != null)
+        {
+            m_cube = cubeObject.transform;
+
+            Debug.Log("[SERVER] GameScene Cube found!");
+        }
+        else
+        {
+            m_cube = null;
+            Debug.LogError("[SERVER] NetworkCube not found!");
+        }
+    }
 
     void Update()
     {
