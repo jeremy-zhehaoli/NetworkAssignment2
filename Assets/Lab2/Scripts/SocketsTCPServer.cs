@@ -1,32 +1,3 @@
-// =================================================================================================
-//  Lab 2 - Sockets: TCP SERVER
-//  XJO - Xarxes per a Jocs Online
-// =================================================================================================
-//
-//  THE EXERCISE
-//    The client sends its user name. The server receives it and answers with the server name.
-//    Scene: S_TCP_Server. The client is in S_TCP_Client.
-//
-//  HOW TO RUN IT
-//    Build the project with S_TCP_Server, or press Play with this scene open.
-//    Then run the client on the other side. Both on the same PC: IP 127.0.0.1.
-//
-//  WHAT IS ALREADY WRITTEN FOR YOU
-//    - Threads, shutdown and the Update() pump. Only Unity's main thread may touch the Unity API,
-//      so the network thread fills a queue and Update() empties it (slide 14).
-//    - Message framing. TCP is a stream of bytes with no message boundaries (slide 12), so every
-//      packet travels as [4-byte length][payload].
-//    - The seam: SendPacket() and OnPacketReceived() work with byte[]. In Lab 3 you will send
-//      serialized objects through these very same functions.
-//
-//  WHAT YOU HAVE TO DO
-//    - The 5 TODOs at the bottom. Each one is 1 to 3 lines.
-//    - It compiles and runs before you start: unfinished TODOs print a [TODO n] warning.
-//    - Stuck? Test against Lab2_Reference/Lab2_TCP_Client.exe, and compare with the solution
-//      object in the scene (disabled GameObject "TCPServerSolution").
-//
-// =================================================================================================
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -42,10 +13,6 @@ public class SocketsTCPServer : MonoBehaviour
     public string serverName = "MyServer";
     public bool autoStart = true;
     public int maxPlayers = 3;
-
-    // =============================================================================================
-    //  GIVEN CODE - nothing to modify until the TODO area
-    // =============================================================================================
 
     const int MaxPacketSize = 64 * 1024;
 
@@ -82,7 +49,7 @@ public class SocketsTCPServer : MonoBehaviour
         StartThread(ServerThread);
     }
 
-    // Closing the sockets is what unblocks the threads waiting in Accept() or Receive() (slide 14).
+    // Closing the sockets is what unblocks the threads waiting in Accept() or Receive() 
     public void Disconnect()
     {
         if (!m_running) return;
@@ -138,7 +105,7 @@ public class SocketsTCPServer : MonoBehaviour
 
     void ServerThread()
     {
-        try { m_listener = StartServer(); }                                          // TODO 1
+        try { m_listener = StartServer(); }                                         
         catch (SocketException e)
         {
             Log("[SERVER] Could not start: " + e.SocketErrorCode +
@@ -153,7 +120,7 @@ public class SocketsTCPServer : MonoBehaviour
         while (m_running)
         {
             Socket client;
-            try { client = AcceptClient(); }                                         // TODO 2
+            try { client = AcceptClient(); }                                        
             catch (SocketException) { break; }
             catch (ObjectDisposedException) { break; }
 
@@ -167,7 +134,7 @@ public class SocketsTCPServer : MonoBehaviour
         }
     }
 
-    // One of these per connected client: in TCP every client has its own socket (slide 8).
+    // One of these per connected client: in TCP every client has its own socket 
     void ClientThread(Socket client)
     {
         ReceiveLoop(client);
@@ -196,7 +163,7 @@ public class SocketsTCPServer : MonoBehaviour
 
         try
         {
-            int sent = SendRaw(to, framed);                                          // TODO 3
+            int sent = SendRaw(to, framed);                                          
             if (sent < 0) WarnTodo(3, "SendRaw() is not implemented yet");
         }
         catch (SocketException e) { Log("[SERVER] Send failed: " + e.SocketErrorCode); }
@@ -232,7 +199,7 @@ public class SocketsTCPServer : MonoBehaviour
         while (total < count)
         {
             int read;
-            try { read = ReceiveRaw(socket, buffer, total, count - total); }         // TODO 4
+            try { read = ReceiveRaw(socket, buffer, total, count - total); }         
             catch (SocketException e) { Log("[SERVER] Connection lost: " + e.SocketErrorCode); return false; }
             catch (ObjectDisposedException) { return false; }
 
@@ -322,18 +289,6 @@ public class SocketsTCPServer : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    // =============================================================================================
-    //  TODO AREA - this is the only part you have to write
-    // =============================================================================================
-
-    // --------------------------------------------------------------------------------- TODO 1 ---
-    //  Goal: leave the server socket ready to receive connections on 'port', and return it.
-    //  Three steps: create a TCP socket, give it a local address, and put it in listening mode.
-    //  Look it up: slide 8 (TCP sequence), slide 6 (who binds and why).
-    //      Socket      https://learn.microsoft.com/dotnet/api/system.net.sockets.socket
-    //      IPEndPoint  https://learn.microsoft.com/dotnet/api/system.net.ipendpoint
-    //  Think: which IP does a server listen on if you want a classmate's PC to reach it? (slide 5)
-    //  Console when it works:  [SERVER] Listening on 9050
     Socket StartServer()
     {
         Socket socket = new Socket(
@@ -345,44 +300,24 @@ public class SocketsTCPServer : MonoBehaviour
             new IPEndPoint(IPAddress.Any, port));
 
         socket.Listen(10);
-        return socket;   // replace with the socket you prepared
+        return socket;  
     }
 
-    // --------------------------------------------------------------------------------- TODO 2 ---
-    //  Goal: wait for one client and return the socket that talks to it.
-    //  Careful: it is NOT the listener. Check the sequence diagram (slide 8) to see which socket
-    //  the data travels through.
-    //  It blocks until somebody connects, which is fine: we are on a network thread.
-    //  Console when it works:  [SERVER] Client connected: 127.0.0.1:54xxx
     Socket AcceptClient()
     {
-        return m_listener.Accept();   // replace with the socket of the accepted client
+        return m_listener.Accept();  
     }
 
-    // --------------------------------------------------------------------------------- TODO 3 ---
-    //  Goal: send 'data' through 'socket' and return how many bytes were sent.
-    //  It is already framed, so send the whole array. No address needed here, and slide 10 says why.
-    //  Look it up: Socket.Send in the docs. It returns the number of bytes sent.
     int SendRaw(Socket socket, byte[] data)
     {
-        return socket.Send(data);   // replace with the number of bytes sent
+        return socket.Send(data);   
     }
 
-    // --------------------------------------------------------------------------------- TODO 4 ---
-    //  Goal: read from 'socket' into 'buffer' at position 'offset', at most 'count' bytes, and
-    //  return how many bytes you actually read.
-    //  Look it up: Socket.Receive, the overload that takes an offset and a size.
-    //  Return the real number: the given code already knows that 0 means "connection closed".
     int ReceiveRaw(Socket socket, byte[] buffer, int offset, int count)
     {
-        return socket.Receive(buffer, offset, count, SocketFlags.None);   // replace with the number of bytes read
+        return socket.Receive(buffer, offset, count, SocketFlags.None);   
     }
 
-    // --------------------------------------------------------------------------------- TODO 5 ---
-    //  Goal: answer with 'serverName' to whoever sent the message.
-    //  'from' is the socket the packet arrived through, so you already know where to reply.
-    //  Use the helper that is already written: SendString(text, socket).
-    //  Console when it works: the client prints  [CLIENT] Received: MyServer
 
     void BroadcastPlayerList()
     {
@@ -519,6 +454,5 @@ public class SocketsTCPServer : MonoBehaviour
 
             BroadcastMessage(playerName, message);
         }
-        // your code here
     }
 }

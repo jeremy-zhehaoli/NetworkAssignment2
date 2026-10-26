@@ -10,7 +10,10 @@ public class CubeRotate : MonoBehaviour
     }
 
     void Update()
-    { 
-        transform.Rotate(new Vector3(0,speed*Time.deltaTime, 0));
+    {
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
+        Vector3 movement = new Vector3(x, 0, z);
+        transform.Translate(movement.normalized * speed * Time.deltaTime);
     }
 }

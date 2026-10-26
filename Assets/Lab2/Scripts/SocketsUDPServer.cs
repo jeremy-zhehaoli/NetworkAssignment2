@@ -60,7 +60,8 @@ public class SocketsUDPServer : MonoBehaviour
 
     //Cube
     public Transform m_cube;
-    private float m_rotationTimer;
+    public Transform m_clientCube;
+    private float m_sendPlayerDataTimer;
     [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
 
     //Timeout
@@ -127,12 +128,12 @@ public class SocketsUDPServer : MonoBehaviour
 
             SceneManager.LoadScene("GameScene");
         }
-        m_rotationTimer += Time.deltaTime;
+        m_sendPlayerDataTimer += Time.deltaTime;
 
-        if (m_rotationTimer >= m_secondsBetweenUpdate)
+        if (m_sendPlayerDataTimer >= m_secondsBetweenUpdate)
         {
-            m_rotationTimer = 0f;
-            BroadcastRotation();
+            m_sendPlayerDataTimer = 0f;
+            BroadcastPlayerVars(2);
         }
 
         m_timeoutCheckTimer += Time.deltaTime;
@@ -177,7 +178,7 @@ public class SocketsUDPServer : MonoBehaviour
 
     public void SendString(string text, EndPoint to)
     {
-        SendPacket(Encoding.UTF8.GetBytes(text), to);
+        SendPacket(Serializer.SerializeText(text), to);
     }
 
     void ReceiveLoop()
@@ -284,7 +285,7 @@ public class SocketsUDPServer : MonoBehaviour
 
         lock (m_log)
         {
-            for (int i = Mathf.Max(0, m_log.Count - 10); i < m_log.Count; i++)
+            for (int i = Mathf.Max(0, m_log.Count - 5); i < m_log.Count; i++)
             {
                 GUILayout.Label(m_log[i]);
             }
@@ -359,6 +360,20 @@ public class SocketsUDPServer : MonoBehaviour
         }
     }
 
+    void BroadcastPacket(byte[] packet)
+    {
+        EndPoint[] targets;
+
+        lock (m_knownClients)
+        {
+            targets = new List<EndPoint>(m_knownClients).ToArray();
+        }
+        foreach (EndPoint target in targets)
+        {
+            SendPacket(packet, target);
+        }
+    }
+
     void BroadcastPlayerList()
     {
         string[] names;
@@ -405,24 +420,31 @@ public class SocketsUDPServer : MonoBehaviour
         }
 
     }
-    void BroadcastRotation()
+    void BroadcastPlayerVars(int id_)
     {
         Vector3 rotation = m_cube.transform.rotation.eulerAngles;
-        string text = "ROT:" + rotation.x + "," + rotation.y + "," + rotation.z; ;
-        EndPoint[] targets;
-        lock (m_knownClients)
-        {
-            targets = m_knownClients.ToArray();
-        }
+        Vector3 position = m_cube.transform.position;
 
-        foreach (EndPoint c in targets)
+        PlayerVarsDTO dto = new PlayerVarsDTO
         {
-            SendString(text, c);
-        }
+            id = id_,
+
+            Posx = position.x,
+            Posy = position.y,
+            Posz = position.z,
+
+            Rotx = rotation.x,
+            Roty = rotation.y,
+            Rotz = rotation.z
+        };
+
+        byte[] packet = Serializer.Serialize(dto);
+        BroadcastPacket(packet);
     }
     void OnPacketReceived(byte[] data, EndPoint from)
     {
-        string text = Encoding.UTF8.GetString(data);
+        string text = Serializer.DeserializeText(data);
+        MsgType type = Serializer.GetMessageType(data);
 
         // Any packet from a known client means it is still there
         lock (m_knownClients)
@@ -431,71 +453,90 @@ public class SocketsUDPServer : MonoBehaviour
                 m_lastHeard[from] = Time.realtimeSinceStartup;
         }
 
-        if (text.StartsWith("PING:"))
-            return;
-
-        Log("[SERVER] Received: " + text + " from " + from);
-
-        if (text.StartsWith("LEAVE:"))
+        switch (type)
         {
-            RemoveClient(from, "left");
-            return;
-        }
+            case MsgType.Text:
+                if (text.StartsWith("PING:"))
+                    return;
 
-        if (text.StartsWith("JOIN:"))
-        {
-            string playerName = text.Substring("JOIN:".Length).Trim();
+                Log("[SERVER] Received: " + text + " from " + from);
 
-            if (string.IsNullOrEmpty(playerName))
-                return;
-
-            bool roomFull;
-            bool isNewClient = false;
-
-            lock (m_knownClients)
-            {
-                bool alreadyJoined = m_playerNames.ContainsKey(from);
-
-                roomFull = !alreadyJoined && m_playerNames.Count >= Mathf.Max(1, maxPlayers);
-
-                if (!roomFull)
+                if (text.StartsWith("LEAVE:"))
                 {
-                    isNewClient = m_knownClients.Add(from);
-                    m_playerNames[from] = playerName;
-                    m_lastHeard[from] = Time.realtimeSinceStartup;
+                    RemoveClient(from, "left");
+                    return;
                 }
-            }
-            if (roomFull)
-            {
-                Log("[SERVER] Room is full. Rejected: " + playerName);
-                SendString("FULL:Room is full", from);
-                return;
-            }
 
-            if (isNewClient)
-            {
-                Log("[SERVER] New client: " + from);
-            }
+                if (text.StartsWith("JOIN:"))
+                {
+                    string playerName = text.Substring("JOIN:".Length).Trim();
 
-            Log("[SERVER] Player joined: " + playerName);
+                    if (string.IsNullOrEmpty(playerName))
+                        return;
 
-            BroadcastPlayerList();
+                    bool roomFull;
+                    bool isNewClient = false;
+
+                    lock (m_knownClients)
+                    {
+                        bool alreadyJoined = m_playerNames.ContainsKey(from);
+
+                        roomFull = !alreadyJoined && m_playerNames.Count >= Mathf.Max(1, maxPlayers);
+
+                        if (!roomFull)
+                        {
+                            isNewClient = m_knownClients.Add(from);
+                            m_playerNames[from] = playerName;
+                            m_lastHeard[from] = Time.realtimeSinceStartup;
+                        }
+                    }
+                    if (roomFull)
+                    {
+                        Log("[SERVER] Room is full. Rejected: " + playerName);
+                        SendString("FULL:Room is full", from);
+                        return;
+                    }
+
+                    if (isNewClient)
+                    {
+                        Log("[SERVER] New client: " + from);
+                    }
+
+                    Log("[SERVER] Player joined: " + playerName);
+
+                    BroadcastPlayerList();
+                }
+                else if (text.StartsWith("CHAT:"))
+                {
+                    string message = text.Substring("CHAT:".Length).Trim();
+
+                    string playerName = "ERRORNoNameFound";
+
+                    if (m_playerNames.TryGetValue(from, out string name))
+                    {
+                        playerName = name;
+                    }
+                    BroadcastMessage(playerName, message);
+
+
+                }
+                break;
+
+            case MsgType.Player:
+                PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
+                if (m_clientCube != null)
+                {
+                    m_clientCube.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
+                    m_clientCube.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
+                }
+                break;
+
+            default:
+
+                break;
         }
-        else if (text.StartsWith("CHAT:"))
-        {
-            string message = text.Substring("CHAT:".Length).Trim();
 
-            string playerName = "ERRORNoNameFound";
-
-            if (m_playerNames.TryGetValue(from, out string name)) 
-            {
-                playerName = name;
-            }
-
-            BroadcastMessage(playerName, message);
-
-
-        }
+        
 
 
     }

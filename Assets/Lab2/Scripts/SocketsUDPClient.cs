@@ -24,6 +24,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using static UnityEngine.GraphicsBuffer;
 
 public class SocketsUDPClient : MonoBehaviour
 {
@@ -52,10 +53,14 @@ public class SocketsUDPClient : MonoBehaviour
 
     //Chat
     public string messageInput = "";
+    List<string> m_chat = new List<string>();
 
     //Cube
-    [SerializeField] Transform m_cube;
+    [SerializeField] Transform m_localPlayerCube;
+    [SerializeField] Transform m_serverNpcCube;
     Quaternion recievedRot;
+    private float m_sendPlayerDataTimer;
+    [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
 
     //Ping / timeout
     [SerializeField] float m_pingInterval = 1f;     // send PING: every second
@@ -107,10 +112,17 @@ public class SocketsUDPClient : MonoBehaviour
         byte[] data;
         while (m_inbox.TryDequeue(out data)) { OnPacketReceived(data); }
 
-        m_cube.transform.rotation = recievedRot;
-
         if (m_running)
         {
+
+            m_sendPlayerDataTimer += Time.deltaTime;
+
+            if (m_sendPlayerDataTimer >= m_secondsBetweenUpdate)
+            {
+                m_sendPlayerDataTimer = 0f;
+                SendLocalPlayerState();
+            }
+
             // Keep telling the server we are still here
             m_pingTimer += Time.deltaTime;
 
@@ -159,7 +171,7 @@ public class SocketsUDPClient : MonoBehaviour
 
     public void SendString(string text)
     {
-        SendPacket(Encoding.UTF8.GetBytes(text));
+        SendPacket(Serializer.SerializeText(text));
     }
     public void SendChat()
     {
@@ -204,48 +216,92 @@ public class SocketsUDPClient : MonoBehaviour
 
     void OnPacketReceived(byte[] data)
     {
-        string text = Encoding.UTF8.GetString(data);
-
-        if (text.StartsWith("ROOM:"))
-        {
-            m_roomInfo = text.Substring("ROOM:".Length);
-        }
 
         m_lastHeardFromServer = Time.realtimeSinceStartup;
 
-        if (text.StartsWith("FULL:"))
+        MsgType type = Serializer.GetMessageType(data);
+        switch (type)
         {
-            m_joinError = text.Substring("FULL:".Length).Trim();
+            case MsgType.Text:
+                string text = Serializer.DeserializeText(data);
+                if (text.StartsWith("ROOM:"))
+                {
+                    m_roomInfo = text.Substring("ROOM:".Length);
+                }
 
-            Log("[CLIENT] Join rejected: " + m_joinError);
 
-            m_joinConfirmed = false;
+                if (text.StartsWith("FULL:"))
+                {
+                    m_joinError = text.Substring("FULL:".Length).Trim();
 
-            Disconnect();
+                    Log("[CLIENT] Join rejected: " + m_joinError);
 
-            return;
+                    m_joinConfirmed = false;
+
+                    Disconnect();
+
+                    return;
+                }
+
+                if (text.StartsWith("PLAYERS:"))
+                {
+                    m_playerList = text.Substring("PLAYERS:".Length);
+                    m_joinConfirmed = true;
+                }
+                if (text.StartsWith("CHAT:"))
+                {
+                    m_chat.Add(text.Substring("CHAT:".Length));
+                    if (m_chat.Count > 5) 
+                    {
+                        m_chat.RemoveAt(0);
+                    }
+                    break;                                       
+                }
+                break;
+            case MsgType.Player:
+
+                PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
+                 ApplyPlayerVars(dto);
+                break;
+            default:
+                break;
         }
 
-        if (!text.StartsWith("ROT:")) 
-        {
-            Log("[CLIENT] Received: " + text);
-        }
 
+    }
+    void ApplyPlayerVars(PlayerVarsDTO dto)
+    {
+        Transform transform = null;
+        if (dto.id == 1)
+        {
+            transform = m_localPlayerCube;
+        }
+        else if (dto.id == 2)
+        {
+            transform = m_serverNpcCube;
+        }
+        transform.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
+        transform.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
+    }
+    void SendLocalPlayerState()
+    {
+        Vector3 position = m_localPlayerCube.position;
+        Vector3 rotation = m_localPlayerCube.eulerAngles;
 
-        if (text.StartsWith("PLAYERS:"))
+        PlayerVarsDTO dto = new PlayerVarsDTO
         {
-            m_playerList = text.Substring("PLAYERS:".Length);
-            m_joinConfirmed = true;
-        }
-        else if (text.StartsWith("ROT:"))
-        {
-            string rotationText = text.Replace("ROT:", "");
-            string[] coordinates = rotationText.Split(',');
-            if (float.TryParse(coordinates[0], out float x) && float.TryParse(coordinates[1], out float y) && float.TryParse(coordinates[2], out float z))
-            {
-                recievedRot = Quaternion.Euler(x, y, z);
-            }
-        }
+            id = 1,
+
+            Posx = position.x,
+            Posy = position.y,
+            Posz = position.z,
+
+            Rotx = rotation.x,
+            Roty = rotation.y,
+            Rotz = rotation.z
+        };
+
+        SendPacket(Serializer.Serialize(dto));
     }
 
     void StartThread(ThreadStart work)
@@ -363,11 +419,16 @@ public class SocketsUDPClient : MonoBehaviour
 
 
                 GUILayout.Label("CHAT");
+                foreach (string message in m_chat)
+                {
+                    GUILayout.Label(message);
+                }
                 messageInput = GUILayout.TextField(messageInput);
                 if (GUILayout.Button("Send", GUILayout.Width(150)))
                 {
                     SendChat();
                 }
+    
             }
             else
             {

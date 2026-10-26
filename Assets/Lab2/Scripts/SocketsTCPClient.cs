@@ -1,26 +1,3 @@
-// =================================================================================================
-//  Lab 2 - Sockets: TCP CLIENT
-//  XJO - Xarxes per a Jocs Online
-// =================================================================================================
-//
-//  THE EXERCISE
-//    The client sends its user name. The server receives it and answers with the server name.
-//    Scene: S_TCP_Client. The server is in S_TCP_Server.
-//
-//  HOW TO RUN IT
-//    Start the server first (build or Editor), then this one. Same PC: Server Ip 127.0.0.1.
-//    With a classmate: their IP, given by "ipconfig" on their machine.
-//
-//  WHAT IS ALREADY WRITTEN FOR YOU
-//    Threads, shutdown, the Update() pump, the 4-byte length framing (slide 12) and the seam
-//    SendPacket() / OnPacketReceived(), which work with byte[].
-//
-//  WHAT YOU HAVE TO DO
-//    The 4 TODOs at the bottom. Each one is 1 to 3 lines. Unfinished ones print a [TODO n] warning.
-//    Stuck? Test against Lab2_Reference/Lab2_TCP_Server.exe, and compare with the disabled
-//    GameObject "TCPClientSolution" in the scene.
-//
-// =================================================================================================
 
 using System;
 using System.Collections.Concurrent;
@@ -38,9 +15,6 @@ public class SocketsTCPClient : MonoBehaviour
     public string userName = "Player";
     public bool autoStart = true;
 
-    // =============================================================================================
-    //  GIVEN CODE - nothing to modify until the TODO area
-    // =============================================================================================
 
     const int MaxPacketSize = 64 * 1024;
 
@@ -107,7 +81,7 @@ public class SocketsTCPClient : MonoBehaviour
 
     void ClientThread()
     {
-        try { m_connection = StartClient(); }                                        // TODO 1
+        try { m_connection = StartClient(); }                                       
         catch (SocketException e)
         {
             Log("[CLIENT] Could not connect: " + e.SocketErrorCode +
@@ -119,7 +93,7 @@ public class SocketsTCPClient : MonoBehaviour
         if (m_connection == null) { WarnTodo(1, "StartClient() returned null"); return; }
         Log("[CLIENT] Connected to " + serverIp + ":" + port);
 
-        OnConnected();                                                               // TODO 2
+        OnConnected();                                                              
         ReceiveLoop(m_connection);
         Log("[CLIENT] Connection closed");
     }
@@ -134,7 +108,7 @@ public class SocketsTCPClient : MonoBehaviour
 
         try
         {
-            int sent = SendRaw(m_connection, framed);                                // TODO 3
+            int sent = SendRaw(m_connection, framed);                                
             if (sent < 0) WarnTodo(3, "SendRaw() is not implemented yet");
         }
         catch (SocketException e) { Log("[CLIENT] Send failed: " + e.SocketErrorCode); }
@@ -174,12 +148,12 @@ public class SocketsTCPClient : MonoBehaviour
         while (total < count)
         {
             int read;
-            try { read = ReceiveRaw(socket, buffer, total, count - total); }         // TODO 4
+            try { read = ReceiveRaw(socket, buffer, total, count - total); }         
             catch (SocketException e) { Log("[CLIENT] Connection lost: " + e.SocketErrorCode); return false; }
             catch (ObjectDisposedException) { return false; }
 
             if (read < 0) { WarnTodo(4, "ReceiveRaw() is not implemented yet"); return false; }
-            if (read == 0) return false;   // 0 bytes = the server closed the connection (slide 8)
+            if (read == 0) return false;   
             total += read;
         }
         return true;
@@ -269,7 +243,6 @@ public class SocketsTCPClient : MonoBehaviour
         }
     }
 
-    // Temporary debug view. In the deliverable you replace it with your own scenes and UI.
     void OnGUI()
     {
         GUILayout.BeginArea(new Rect(10, 10, 450, 400));
@@ -353,17 +326,6 @@ public class SocketsTCPClient : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    // =============================================================================================
-    //  TODO AREA - this is the only part you have to write
-    // =============================================================================================
-
-    // --------------------------------------------------------------------------------- TODO 1 ---
-    //  Goal: create the client socket, connect it to the server, and return it.
-    //  You have 'serverIp' and 'port'. The client does not bind: the system gives it a free port
-    //  (slide 6). It names the server only once, and the socket remembers it (slide 10).
-    //  Look it up: slide 8, and Socket / Socket.Connect / IPEndPoint in the docs.
-    //  If the server is not running you get ConnectionRefused. That is the expected error.
-    //  Console when it works:  [CLIENT] Connected to 127.0.0.1:9050
     Socket StartClient()
     {
         Socket socket = new Socket(
@@ -378,35 +340,21 @@ public class SocketsTCPClient : MonoBehaviour
             )
         );
 
-        return socket;   // replace with the socket you connected
+        return socket;   
     }
 
-    // --------------------------------------------------------------------------------- TODO 2 ---
-    //  Goal: introduce yourself. Send 'userName' to the server, right after connecting.
-    //  Use the helper that is already written: SendString(text).
-    //  Runs on the network thread, so do not touch the Unity API here.
-    //  Console when it works: the server prints  [SERVER] Received: Player
     void OnConnected()
     {
         SendString("JOIN:" + userName);
-        // your code here
+
     }
 
-    // --------------------------------------------------------------------------------- TODO 3 ---
-    //  Goal: send 'data' through 'socket' and return how many bytes were sent.
-    //  It is already framed, so send the whole array. Same call the server uses.
-    //  Look it up: Socket.Send in the docs.
     int SendRaw(Socket socket, byte[] data)
     {
         return socket.Send(data);
-        //return -1;   // replace with the number of bytes sent
     }
 
-    // --------------------------------------------------------------------------------- TODO 4 ---
-    //  Goal: read from 'socket' into 'buffer' at position 'offset', at most 'count' bytes, and
-    //  return how many bytes you actually read.
-    //  Look it up: Socket.Receive, the overload that takes an offset and a size.
-    //  Console when it works:  [CLIENT] Received: MyServer
+
     int ReceiveRaw(Socket socket, byte[] buffer, int offset, int count)
     {
         return socket.Receive(
@@ -414,6 +362,5 @@ public class SocketsTCPClient : MonoBehaviour
             offset,
             count,
             SocketFlags.None);
-        //return -1;   // replace with the number of bytes read
     }
 }
