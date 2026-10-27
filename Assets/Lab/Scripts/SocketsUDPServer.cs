@@ -127,16 +127,32 @@ public class SocketsUDPServer : MonoBehaviour
             return;
 
         GameObject cubeObject = GameObject.Find("NetworkCube");
+        GameObject externalCubeObject = GameObject.Find("NetworkCube1");
 
         if (cubeObject != null)
         {
             m_cube = cubeObject.transform;
+            m_clientCube = externalCubeObject.transform;
+
+            CubeRotate localRotateScript = m_cube.GetComponent<CubeRotate>();
+            CubeRotate externalRotateScript = m_clientCube.GetComponent<CubeRotate>();
+
+            if (localRotateScript != null)
+            {
+                localRotateScript.enabled = true;
+            }
+            if (externalRotateScript != null)
+            {
+                externalRotateScript.enabled = false;
+            }
+
 
             Debug.Log("[SERVER] GameScene Cube found!");
         }
         else
         {
             m_cube = null;
+            m_clientCube = null;
             Debug.LogError("[SERVER] NetworkCube not found!");
         }
     }

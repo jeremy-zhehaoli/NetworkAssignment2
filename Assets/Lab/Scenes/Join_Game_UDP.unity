@@ -202,10 +202,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e488014733063fb4995ad9cd7a4471bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SocketsUDPClientSolution
-  serverIp: 127.0.0.1
-  port: 9050
-  userName: Player
-  autoStart: 0
 --- !u!4 &481956937
 Transform:
   m_ObjectHideFlags: 0
@@ -240,7 +236,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &564075896
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -366,7 +362,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &817341401
 BoxCollider:
   m_ObjectHideFlags: 0

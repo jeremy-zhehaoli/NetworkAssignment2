@@ -61,7 +61,7 @@ public class SocketsUDPClient : MonoBehaviour
     //Cube
     [SerializeField] Transform m_localPlayerCube;
     [SerializeField] Transform m_serverNpcCube;
-    Quaternion recievedRot;
+
     private float m_sendPlayerDataTimer;
     [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
 
@@ -126,17 +126,25 @@ public class SocketsUDPClient : MonoBehaviour
         if (scene.name != "GameScene")
             return;
 
-        GameObject cubeObject = GameObject.Find("NetworkCube");
+        GameObject localCubeObj = GameObject.Find("NetworkCube1");
+        GameObject externalCubeObj = GameObject.Find("NetworkCube");
 
-        if (cubeObject != null)
+        if (localCubeObj != null && externalCubeObj != null)
         {
-            m_localPlayerCube = cubeObject.transform;
+            m_localPlayerCube = localCubeObj.transform;
+            m_serverNpcCube = externalCubeObj.transform;
 
-            CubeRotate rotateScript = cubeObject.GetComponent<CubeRotate>();
+            CubeRotate localRotateScript = localCubeObj.GetComponent<CubeRotate>();
+            CubeRotate externalRotateScript = externalCubeObj.GetComponent<CubeRotate>();
 
-            if (rotateScript != null)
+
+            if (localRotateScript != null)
             {
-                rotateScript.enabled = false;
+                localRotateScript.enabled = true;
+            }
+            if (externalRotateScript!=null)
+            {
+                externalRotateScript.enabled = false;
             }
 
             Debug.Log("[CLIENT] GameScene Cube found!");
@@ -144,6 +152,7 @@ public class SocketsUDPClient : MonoBehaviour
         else
         {
             m_localPlayerCube = null;
+            m_serverNpcCube = null;
             Debug.LogError("[CLIENT] NetworkCube not found!");
         }
     }

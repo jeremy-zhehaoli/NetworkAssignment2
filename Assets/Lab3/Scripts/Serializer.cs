@@ -58,11 +58,6 @@ public static class Serializer
         byte[] finalText = new byte[textConverted.Length + 1];
 
         finalText[0] = (byte)MsgType.Text;
-
-        //for (int i = 0; i < finalText.Length; i++)
-        //{
-        //    finalText[i + 1] = textConverted[i];
-        //}
         Buffer.BlockCopy(textConverted, 0, finalText, 1, textConverted.Length);
         return finalText;
     }
