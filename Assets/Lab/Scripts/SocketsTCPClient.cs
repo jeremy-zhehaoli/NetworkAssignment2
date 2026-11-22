@@ -30,6 +30,8 @@ public class SocketsTCPClient : MonoBehaviour
 
     //Chat
     public string messageInput;
+    readonly List<string> m_chatHistory = new List<string>();
+    Vector2 m_chatScroll;
 
     //Cube
     [SerializeField] Transform m_cube;
@@ -119,9 +121,19 @@ public class SocketsTCPClient : MonoBehaviour
     {
         SendPacket(Encoding.UTF8.GetBytes(text));
     }
-    public void SendChat() 
+
+    public void SendChat()
     {
-        SendString("CHAT:" + messageInput);
+        if (!m_running)
+            return;
+
+        string message = (messageInput ?? "").Trim();
+
+        if (string.IsNullOrEmpty(message))
+            return;
+
+        SendString("CHAT:" + message);
+
         messageInput = "";
     }
 
@@ -200,7 +212,12 @@ public class SocketsTCPClient : MonoBehaviour
             }
         }
 
+        else if (text.StartsWith("CHAT:"))
+        {
+            string message = text.Substring(5);
 
+            AddChatLine(message);
+        }
     }
 
     void StartThread(ThreadStart work)
@@ -298,14 +315,6 @@ public class SocketsTCPClient : MonoBehaviour
             }
             GUILayout.Space(10);
 
-            GUILayout.Label("CHAT");
-            messageInput = GUILayout.TextField(messageInput);
-
-            if (GUILayout.Button("Send", GUILayout.Width(150)))
-            {
-                SendChat();
-            }
-
             if (GUILayout.Button("Disconnect", GUILayout.Width(150)))
             {
                 Disconnect();
@@ -322,6 +331,70 @@ public class SocketsTCPClient : MonoBehaviour
                 GUILayout.Label(m_log[i]);
             }
         }
+
+        GUILayout.EndArea();
+        DrawChatPanel();
+    }
+
+    void AddChatLine(string message)
+    {
+        m_chatHistory.Add(message);
+
+        if (m_chatHistory.Count > 30)
+        {
+            m_chatHistory.RemoveAt(0);
+        }
+
+        m_chatScroll.y = float.MaxValue;
+    }
+
+
+    void DrawChatPanel()
+    {
+        if (!m_running)
+            return;
+
+        float width = 300f;
+
+        Rect chatRect = new Rect(
+            Screen.width - width - 10,
+            10,
+            width,
+            250
+        );
+
+        GUILayout.BeginArea(chatRect, GUI.skin.box);
+
+        GUILayout.Label("CHAT ROOM");
+
+        m_chatScroll = GUILayout.BeginScrollView(
+            m_chatScroll,
+            GUILayout.Height(165)
+        );
+
+        foreach (string message in m_chatHistory)
+        {
+            GUILayout.Label(message);
+        }
+
+        GUILayout.EndScrollView();
+
+        GUILayout.Space(5);
+
+        GUILayout.BeginHorizontal();
+
+        messageInput = GUILayout.TextField(
+            messageInput,
+            160,
+            GUILayout.ExpandWidth(true)
+        );
+
+        if (GUILayout.Button("Send", GUILayout.Width(60)))
+        {
+            SendChat();
+        }
+
+        GUILayout.EndHorizontal();
 
         GUILayout.EndArea();
     }
