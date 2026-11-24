@@ -26,6 +26,7 @@ using System.Threading;
 using UnityEngine;
 using static UnityEngine.GraphicsBuffer;
 using UnityEngine.SceneManagement;
+using System.Globalization;
 
 public class SocketsUDPClient : MonoBehaviour
 {
@@ -58,12 +59,17 @@ public class SocketsUDPClient : MonoBehaviour
     public string messageInput = "";
     List<string> m_chat = new List<string>();
 
-    //Cube
-    [SerializeField] Transform m_localPlayerCube;
-    [SerializeField] Transform m_serverNpcCube;
+    // Player spawning
+    [SerializeField] private GameObject playerPrefab;
+
+    private Transform m_localPlayerCube;
+
+    private Vector3 m_spawnPosition;
 
     private float m_sendPlayerDataTimer;
-    [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
+
+    [SerializeField]
+    private float m_secondsBetweenUpdate = 0.1f;
 
     //Ping / timeout
     [SerializeField] float m_pingInterval = 1f;     // send PING: every second
@@ -96,6 +102,16 @@ public class SocketsUDPClient : MonoBehaviour
         if (!m_running) return;
         m_running = false;
         m_joinConfirmed = false;
+
+        if (m_localPlayerCube != null)
+        {
+            Destroy(m_localPlayerCube.gameObject);
+
+            m_localPlayerCube = null;
+        }
+
+        gameStarted = false;
+
         m_roomInfo = "";
         m_playerList = "";
 
@@ -126,35 +142,37 @@ public class SocketsUDPClient : MonoBehaviour
         if (scene.name != "GameScene")
             return;
 
-        GameObject localCubeObj = GameObject.Find("NetworkCube1");
-        GameObject externalCubeObj = GameObject.Find("NetworkCube");
+        if (!gameStarted || !m_joinConfirmed)
+            return;
 
-        if (localCubeObj != null && externalCubeObj != null)
+        SpawnLocalPlayer();
+    }
+
+    private void SpawnLocalPlayer()
+    {
+        if (m_localPlayerCube != null)
+            return;
+
+        if (playerPrefab == null)
         {
-            m_localPlayerCube = localCubeObj.transform;
-            m_serverNpcCube = externalCubeObj.transform;
-
-            CubeRotate localRotateScript = localCubeObj.GetComponent<CubeRotate>();
-            CubeRotate externalRotateScript = externalCubeObj.GetComponent<CubeRotate>();
-
-
-            if (localRotateScript != null)
-            {
-                localRotateScript.enabled = true;
-            }
-            if (externalRotateScript!=null)
-            {
-                externalRotateScript.enabled = false;
-            }
-
-            Debug.Log("[CLIENT] GameScene Cube found!");
+            Debug.LogError("[CLIENT] Player Prefab is missing");
+            return;
         }
-        else
+
+        GameObject cube = Instantiate(playerPrefab,m_spawnPosition,Quaternion.identity);
+
+        cube.name = "LocalPlayer_" + userName;
+
+        m_localPlayerCube = cube.transform;
+
+        CubeRotate rotateScript = cube.GetComponent<CubeRotate>();
+
+        if (rotateScript != null)
         {
-            m_localPlayerCube = null;
-            m_serverNpcCube = null;
-            Debug.LogError("[CLIENT] NetworkCube not found!");
+            rotateScript.enabled = true;
         }
+
+        Debug.Log("[CLIENT] Local player spawned");
     }
 
     void Update()
@@ -286,19 +304,37 @@ public class SocketsUDPClient : MonoBehaviour
                     return;
                 }
 
-                if (text == "START_THE_GAME")
+                if (text.StartsWith("START_THE_GAME:"))
                 {
-                    if (!gameStarted)
-                    {
-                        gameStarted = true;
+                    if (gameStarted)
+                        return;
 
-                        Debug.Log("[CLIENT] Starting GameScene");
+                    string[] values = text.Substring("START_THE_GAME:".Length).Split(',');
 
-                        SceneManager.LoadScene("GameScene");
-                    }
+                    if (values.Length != 3)
+                        return;
+
+                    if (!float.TryParse(values[0], NumberStyles.Float,CultureInfo.InvariantCulture, out float x))
+                        return;
+
+                    if (!float.TryParse(values[1], NumberStyles.Float,CultureInfo.InvariantCulture, out float y))
+                        return;
+
+                    if (!float.TryParse(values[2], NumberStyles.Float,CultureInfo.InvariantCulture, out float z))
+                        return;
+
+                    m_spawnPosition = new Vector3(x, y, z);
+
+                    m_joinConfirmed = true;
+                    gameStarted = true;
+
+                    Debug.Log("[CLIENT] Starting GameScene");
+
+                    SceneManager.LoadScene("GameScene");
 
                     return;
                 }
+
                 if (text.StartsWith("ROOM:"))
                 {
                     m_roomInfo = text.Substring("ROOM:".Length);
@@ -334,9 +370,6 @@ public class SocketsUDPClient : MonoBehaviour
                 }
                 break;
             case MsgType.Player:
-
-                PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
-                ApplyPlayerVars(dto);
                 break;
             default:
                 break;
@@ -344,22 +377,7 @@ public class SocketsUDPClient : MonoBehaviour
         }
 
     }
-    void ApplyPlayerVars(PlayerVarsDTO dto)
-    {
-        Transform transform = null;
-        if (dto.id == 1)
-        {
-            transform = m_localPlayerCube;
-        }
-        else if (dto.id == 2)
-        {
-            transform = m_serverNpcCube;
-        }
-        if (transform == null)
-            return;
-        transform.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
-        transform.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
-    }
+
     void SendLocalPlayerState()
     {
         if (!m_joinConfirmed ||

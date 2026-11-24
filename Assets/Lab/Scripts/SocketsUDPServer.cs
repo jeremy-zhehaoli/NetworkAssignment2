@@ -58,11 +58,13 @@ public class SocketsUDPServer : MonoBehaviour
     readonly HashSet<int> m_warned = new HashSet<int>();
     volatile bool m_running;
 
-    //Cube
-    public Transform m_cube;
-    public Transform m_clientCube;
-    private float m_sendPlayerDataTimer;
-    [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
+    // Player spawning
+    [SerializeField] private GameObject playerPrefab;
+
+    private readonly Dictionary<EndPoint, GameObject>
+        m_playerCubes = new Dictionary<EndPoint, GameObject>();
+
+    private int m_nextSpawnIndex = 0;
 
     //Timeout
     [SerializeField] private float m_clientTimeout = 5f;   // nothing from a client in this time: remove it
@@ -89,6 +91,18 @@ public class SocketsUDPServer : MonoBehaviour
     {
         if (!m_running) return;
         m_running = false;
+
+        foreach (GameObject cube in m_playerCubes.Values)
+        {
+            if (cube != null)
+                Destroy(cube);
+        }
+
+        m_playerCubes.Clear();
+
+        m_nextSpawnIndex = 0;
+        gameStarted = false;
+        startRequested = false;
 
         // Closing the socket unblocks the thread waiting in ReceiveFrom() (slide 14).
         // No Shutdown() here: UDP has no connection to shut down.
@@ -126,35 +140,60 @@ public class SocketsUDPServer : MonoBehaviour
         if (scene.name != "GameScene")
             return;
 
-        GameObject cubeObject = GameObject.Find("NetworkCube");
-        GameObject externalCubeObject = GameObject.Find("NetworkCube1");
+        if (!m_running || !gameStarted)
+            return;
 
-        if (cubeObject != null)
+        foreach (EndPoint client in m_knownClients.ToArray())
         {
-            m_cube = cubeObject.transform;
-            m_clientCube = externalCubeObject.transform;
+            SpawnPlayer(client);
 
-            CubeRotate localRotateScript = m_cube.GetComponent<CubeRotate>();
-            CubeRotate externalRotateScript = m_clientCube.GetComponent<CubeRotate>();
-
-            if (localRotateScript != null)
-            {
-                localRotateScript.enabled = true;
-            }
-            if (externalRotateScript != null)
-            {
-                externalRotateScript.enabled = false;
-            }
-
-
-            Debug.Log("[SERVER] GameScene Cube found!");
+            SendGameStart(client);
         }
-        else
+    }
+
+    private void SpawnPlayer(EndPoint client)
+    {
+        if (m_playerCubes.TryGetValue(client, out GameObject existing)
+            && existing != null)
+            return;
+
+        if (playerPrefab == null)
         {
-            m_cube = null;
-            m_clientCube = null;
-            Debug.LogError("[SERVER] NetworkCube not found!");
+            Debug.LogError("[SERVER] Player Prefab is missing!");
+            return;
         }
+
+        Vector3 spawnPosition = new Vector3(m_nextSpawnIndex * 2f,0.5f,0f);
+
+        m_nextSpawnIndex++;
+
+        GameObject cube = Instantiate(playerPrefab,spawnPosition,Quaternion.identity);
+
+        cube.name = "Player_" + m_playerNames[client];
+
+        CubeRotate rotateScript = cube.GetComponent<CubeRotate>();
+
+        if (rotateScript != null)
+        {
+            rotateScript.enabled = false;
+        }
+
+        m_playerCubes[client] = cube;
+
+        Debug.Log("[SERVER] Spawned player: " + client);
+    }
+
+    private void SendGameStart(EndPoint client)
+    {
+        if (!m_playerCubes.TryGetValue(client, out GameObject cube)
+            || cube == null)
+            return;
+
+        Vector3 pos = cube.transform.position;
+
+        string message = FormattableString.Invariant($"START_THE_GAME:{pos.x},{pos.y},{pos.z}");
+
+        SendString(message, client);
     }
 
     void Update()
@@ -169,18 +208,9 @@ public class SocketsUDPServer : MonoBehaviour
             startRequested = false;
             gameStarted = true;
 
-            Broadcast("START_THE_GAME");
-
             Debug.Log("[SERVER] Starting GameScene");
 
             SceneManager.LoadScene("GameScene");
-        }
-        m_sendPlayerDataTimer += Time.deltaTime;
-
-        if (m_sendPlayerDataTimer >= m_secondsBetweenUpdate)
-        {
-            m_sendPlayerDataTimer = 0f;
-            BroadcastPlayerVars(2);
         }
 
         m_timeoutCheckTimer += Time.deltaTime;
@@ -467,29 +497,7 @@ public class SocketsUDPServer : MonoBehaviour
         }
 
     }
-    void BroadcastPlayerVars(int id_)
-    {
-        if (!gameStarted || m_cube == null)
-            return;
-        Vector3 rotation = m_cube.transform.rotation.eulerAngles;
-        Vector3 position = m_cube.transform.position;
 
-        PlayerVarsDTO dto = new PlayerVarsDTO
-        {
-            id = id_,
-
-            Posx = position.x,
-            Posy = position.y,
-            Posz = position.z,
-
-            Rotx = rotation.x,
-            Roty = rotation.y,
-            Rotz = rotation.z
-        };
-
-        byte[] packet = Serializer.Serialize(dto);
-        BroadcastPacket(packet);
-    }
     void OnPacketReceived(byte[] data, EndPoint from)
     {
         MsgType type = Serializer.GetMessageType(data);
@@ -580,13 +588,18 @@ public class SocketsUDPServer : MonoBehaviour
                 break;
 
             case MsgType.Player:
-                PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
-                if (m_clientCube != null)
                 {
-                    m_clientCube.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
-                    m_clientCube.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
+                    if (!m_playerCubes.TryGetValue(from, out GameObject cube)
+                        || cube == null)
+                        break;
+
+                    PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
+
+                    cube.transform.position = new Vector3(dto.Posx,dto.Posy,dto.Posz);
+                    cube.transform.rotation = Quaternion.Euler(dto.Rotx,dto.Roty,dto.Rotz);
+
+                    break;
                 }
-                break;
 
             default:
 
@@ -635,6 +648,16 @@ public class SocketsUDPServer : MonoBehaviour
 
         if (!removed)
             return;
+
+        if (m_playerCubes.TryGetValue(client, out GameObject cube))
+        {
+            if (cube != null)
+            {
+                Destroy(cube);
+            }
+
+            m_playerCubes.Remove(client);
+        }
 
         Log("[SERVER] Player " + reason + ": " + playerName + " (" + client + ")");
 

@@ -152,9 +152,7 @@ MonoBehaviour:
   serverName: MyServer
   autoStart: 0
   maxPlayers: 2
-  m_cube: {fileID: 516879146}
-  m_clientCube: {fileID: 257610210}
-  m_secondsBetweenUpdate: 0.01
+  playerPrefab: {fileID: 7559631356405455722, guid: 8ccebe44515ad7742a907b767893cb37, type: 3}
   m_clientTimeout: 5
 --- !u!4 &167353101
 Transform:
@@ -225,6 +223,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CubeRotate
   speed: 30
+  jumpForce: 5
+  dashForce: 10
 --- !u!23 &257610208
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -351,6 +351,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CubeRotate
   speed: 30
+  jumpForce: 5
+  dashForce: 10
 --- !u!23 &516879144
 MeshRenderer:
   m_ObjectHideFlags: 0
