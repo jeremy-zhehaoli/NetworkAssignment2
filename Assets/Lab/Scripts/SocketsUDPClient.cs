@@ -179,7 +179,14 @@ public class SocketsUDPClient : MonoBehaviour
             if (m_pingTimer >= m_pingInterval)
             {
                 m_pingTimer = 0f;
-                SendString("PING:");
+                if (!m_joinConfirmed)
+                {
+                    SendString("JOIN:" + userName);
+                }
+                else
+                {
+                    SendString("PING:");
+                }
             }
 
             // Same trick the other way: if the server stops sending, it is gone
@@ -266,7 +273,6 @@ public class SocketsUDPClient : MonoBehaviour
 
     void OnPacketReceived(byte[] data)
     {
-
         m_lastHeardFromServer = Time.realtimeSinceStartup;
 
         MsgType type = Serializer.GetMessageType(data);
@@ -274,6 +280,12 @@ public class SocketsUDPClient : MonoBehaviour
         {
             case MsgType.Text:
                 string text = Serializer.DeserializeText(data);
+
+                if (text.StartsWith("PONG:"))
+                {
+                    return;
+                }
+
                 if (text == "START_THE_GAME")
                 {
                     if (!gameStarted)
@@ -343,11 +355,18 @@ public class SocketsUDPClient : MonoBehaviour
         {
             transform = m_serverNpcCube;
         }
+        if (transform == null)
+            return;
         transform.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
         transform.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
     }
     void SendLocalPlayerState()
     {
+        if (!m_joinConfirmed ||
+        !gameStarted ||
+        m_localPlayerCube == null)
+            return;
+
         Vector3 position = m_localPlayerCube.position;
         Vector3 rotation = m_localPlayerCube.eulerAngles;
 

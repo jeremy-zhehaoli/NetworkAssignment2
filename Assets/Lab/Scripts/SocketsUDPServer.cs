@@ -469,6 +469,8 @@ public class SocketsUDPServer : MonoBehaviour
     }
     void BroadcastPlayerVars(int id_)
     {
+        if (!gameStarted || m_cube == null)
+            return;
         Vector3 rotation = m_cube.transform.rotation.eulerAngles;
         Vector3 position = m_cube.transform.position;
 
@@ -490,7 +492,6 @@ public class SocketsUDPServer : MonoBehaviour
     }
     void OnPacketReceived(byte[] data, EndPoint from)
     {
-        string text = Serializer.DeserializeText(data);
         MsgType type = Serializer.GetMessageType(data);
 
         // Any packet from a known client means it is still there
@@ -503,8 +504,17 @@ public class SocketsUDPServer : MonoBehaviour
         switch (type)
         {
             case MsgType.Text:
+                string text = Serializer.DeserializeText(data);
+
                 if (text.StartsWith("PING:"))
+                {
+                    if (m_knownClients.Contains(from))
+                    {
+                        SendString("PONG:", from);
+                    }
+
                     return;
+                }
 
                 Log("[SERVER] Received: " + text + " from " + from);
 
