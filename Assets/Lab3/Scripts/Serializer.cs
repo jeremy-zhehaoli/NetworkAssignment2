@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 public static class Serializer
 {
-
+    #region Player
     public static byte[] Serialize(PlayerVarsDTO dto)
     {
         MemoryStream stream = new MemoryStream();
@@ -21,8 +21,6 @@ public static class Serializer
         writer.Write(dto.Rotx);
         writer.Write(dto.Roty);
         writer.Write(dto.Rotz);
-
-        writer.Write(dto.id);
 
         return stream.ToArray();
     }
@@ -41,12 +39,11 @@ public static class Serializer
         dto.Roty = reader.ReadSingle();
         dto.Rotz = reader.ReadSingle();
 
-        dto.id = reader.ReadInt32();
-
-
         return dto;
     }
+    #endregion
 
+    #region Messages
     public static MsgType GetMessageType(byte[] data)
     {
         return (MsgType)data[0];
@@ -77,4 +74,6 @@ public static class Serializer
         }
         return sb.ToString();
     }
+    #endregion
+
 }

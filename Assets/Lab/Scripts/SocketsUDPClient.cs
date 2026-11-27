@@ -1,31 +1,14 @@
-// =================================================================================================
-//  Lab 2 - Sockets: UDP CLIENT
-//  XJO - Xarxes per a Jocs Online
-// =================================================================================================
-//
-//  THE EXERCISE
-//    Same as the TCP one: you send your user name, the server answers with its name.
-//    What changes (slides 7, 9 and 24):
-//
-//      - There is no Connect(). Your first message IS the handshake.
-//      - You do not bind either: the first SendTo() makes the system pick a local port for you.
-//      - You must write the server address on every message you send.
-//
-//  Scene: S_UDP_Client. The server is in S_UDP_Server. Start the server first.
-//  The 5 TODOs are at the bottom. Unfinished ones print a [TODO n] warning instead of crashing.
-//
-// =================================================================================================
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
 using UnityEngine.SceneManagement;
+using static UnityEngine.GraphicsBuffer;
 
 public class SocketsUDPClient : MonoBehaviour
 {
@@ -58,10 +41,17 @@ public class SocketsUDPClient : MonoBehaviour
     public string messageInput = "";
     List<string> m_chat = new List<string>();
 
-    //Cube
+
+    //World Replication
+    [SerializeField] GameObject[] m_prefabs;
+    LinkingContext m_linking = new LinkingContext();
+    ReplicationManagerClient m_replication;
+    int m_PlayerNetId = 0;
+    bool m_sceneReady;
+    float m_readyTimer;
+
     [SerializeField] Transform m_localPlayerCube;
     [SerializeField] Transform m_serverNpcCube;
-
     private float m_sendPlayerDataTimer;
     [SerializeField] private float m_secondsBetweenUpdate = 0.1f;
 
@@ -88,6 +78,9 @@ public class SocketsUDPClient : MonoBehaviour
         m_running = true;
         m_pingTimer = 0f;
         m_lastHeardFromServer = Time.realtimeSinceStartup;
+
+        m_PlayerNetId = 0;
+
         StartThread(ClientThread);
     }
 
@@ -99,8 +92,10 @@ public class SocketsUDPClient : MonoBehaviour
         m_roomInfo = "";
         m_playerList = "";
 
-        if (m_socket != null) { try { m_socket.Close(); } catch { } m_socket = null; }
+        m_PlayerNetId = 0;
 
+        if (m_socket != null) { try { m_socket.Close(); } catch { } m_socket = null; }
+        ResetWorld();
         Thread[] threads;
         lock (m_threads) { threads = m_threads.ToArray(); m_threads.Clear(); }
         foreach (Thread t in threads) if (t != Thread.CurrentThread) t.Join(500);
@@ -111,7 +106,7 @@ public class SocketsUDPClient : MonoBehaviour
     void Awake()
     {
         DontDestroyOnLoad(gameObject);
-
+        ResetWorld();
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -120,43 +115,70 @@ public class SocketsUDPClient : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         Disconnect();
     }
+    void ResetWorld()
+    {
+        foreach (KeyValuePair<int, GameObject> kv in m_linking.Objects)
+            if (kv.Value != null) Destroy(kv.Value);
 
+        m_linking = new LinkingContext();
+        m_replication = new ReplicationManagerClient(m_linking, m_prefabs);
+        m_replication.OnCreated = ApplyOwnership;
+        m_localPlayerCube = null;
+        m_sceneReady = false;
+        m_sendPlayerDataTimer = 0f;
+    }
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name != "GameScene")
             return;
 
-        GameObject localCubeObj = GameObject.Find("NetworkCube1");
-        GameObject externalCubeObj = GameObject.Find("NetworkCube");
+        ResetWorld();
+        m_sceneReady = true;
+        m_readyTimer = 0.5f;
 
-        if (localCubeObj != null && externalCubeObj != null)
-        {
-            m_localPlayerCube = localCubeObj.transform;
-            m_serverNpcCube = externalCubeObj.transform;
+        //GameObject localCubeObj = GameObject.Find("NetworkCube1");
+        //GameObject externalCubeObj = GameObject.Find("NetworkCube");
 
-            CubeRotate localRotateScript = localCubeObj.GetComponent<CubeRotate>();
-            CubeRotate externalRotateScript = externalCubeObj.GetComponent<CubeRotate>();
+        //if (localCubeObj != null && externalCubeObj != null)
+        //{
+        //    m_localPlayerCube = localCubeObj.transform;
+        //    m_serverNpcCube = externalCubeObj.transform;
+
+        //    CubeRotate localRotateScript = localCubeObj.GetComponent<CubeRotate>();
+        //    CubeRotate externalRotateScript = externalCubeObj.GetComponent<CubeRotate>();
 
 
-            if (localRotateScript != null)
-            {
-                localRotateScript.enabled = true;
-            }
-            if (externalRotateScript!=null)
-            {
-                externalRotateScript.enabled = false;
-            }
+        //    if (localRotateScript != null)
+        //    {
+        //        localRotateScript.enabled = true;
+        //    }
+        //    if (externalRotateScript!=null)
+        //    {
+        //        externalRotateScript.enabled = false;
+        //    }
 
-            Debug.Log("[CLIENT] GameScene Cube found!");
-        }
-        else
-        {
-            m_localPlayerCube = null;
-            m_serverNpcCube = null;
-            Debug.LogError("[CLIENT] NetworkCube not found!");
-        }
+        //    Debug.Log("[CLIENT] GameScene Cube found!");
+        //}
+        //else
+        //{
+        //    m_localPlayerCube = null;
+        //    m_serverNpcCube = null;
+        //    Debug.LogError("[CLIENT] NetworkCube not found!");
+        //}
     }
+    void ApplyOwnership(NetObject netObject)
+    {
+        
+        bool mine = m_PlayerNetId != 0 && netObject.id == m_PlayerNetId;
+        netObject.isMine = mine;
 
+        CubeRotate cubeRotate = netObject.GetComponent<CubeRotate>();
+        if (cubeRotate != null) cubeRotate.enabled = mine;
+
+        Rigidbody rb = netObject.GetComponent<Rigidbody>();
+        if (rb != null) rb.isKinematic = !mine;
+        if (mine) m_localPlayerCube = netObject.transform;
+    }
     void Update()
     {
         byte[] data;
@@ -165,12 +187,25 @@ public class SocketsUDPClient : MonoBehaviour
         if (m_running)
         {
 
-            m_sendPlayerDataTimer += Time.deltaTime;
-
-            if (m_sendPlayerDataTimer >= m_secondsBetweenUpdate)
+            if (m_localPlayerCube != null)
             {
-                m_sendPlayerDataTimer = 0f;
-                SendLocalPlayerState();
+                m_sendPlayerDataTimer += Time.deltaTime;
+
+                if (m_sendPlayerDataTimer >= m_secondsBetweenUpdate)
+                {
+                    m_sendPlayerDataTimer = 0f;
+                    SendLocalPlayerState();
+                }
+            }
+
+            if (m_sceneReady && m_PlayerNetId == 0)
+            {
+                m_readyTimer += Time.deltaTime;
+                if (m_readyTimer >= 0.5f)
+                {
+                    m_readyTimer = 0f;
+                    SendString("READY:");
+                }
             }
 
             // Keep telling the server we are still here
@@ -287,6 +322,26 @@ public class SocketsUDPClient : MonoBehaviour
 
                     return;
                 }
+                if (text.StartsWith("YOUR_ID:"))
+                {
+                    int myId;
+                    if (int.TryParse(text.Substring("YOUR_ID:".Length), out myId))
+                    {
+                        m_PlayerNetId = myId;
+                        Log("[CLIENT] My player is network object " + m_PlayerNetId);
+
+                        foreach (KeyValuePair<int, GameObject> keyValuePair in m_linking.Objects)
+                        {
+                            NetObject existing = keyValuePair.Value.GetComponent<NetObject>();
+                            if (existing != null) 
+                            {
+                                ApplyOwnership(existing);
+                            }
+
+                        }
+                    }
+                    return;
+                }
                 if (text.StartsWith("ROOM:"))
                 {
                     m_roomInfo = text.Substring("ROOM:".Length);
@@ -324,27 +379,19 @@ public class SocketsUDPClient : MonoBehaviour
             case MsgType.Player:
 
                 PlayerVarsDTO dto = Serializer.DeserializePlayerVars(data);
-                ApplyPlayerVars(dto);
+                break;
+
+            case MsgType.Replication:
+                if (!m_sceneReady) break;
+                BinaryReader reader = new BinaryReader(new MemoryStream(data));
+                reader.ReadByte();
+                m_replication.ReadPacket(reader);
                 break;
             default:
                 break;
 
         }
 
-    }
-    void ApplyPlayerVars(PlayerVarsDTO dto)
-    {
-        Transform transform = null;
-        if (dto.id == 1)
-        {
-            transform = m_localPlayerCube;
-        }
-        else if (dto.id == 2)
-        {
-            transform = m_serverNpcCube;
-        }
-        transform.position = new Vector3(dto.Posx, dto.Posy, dto.Posz);
-        transform.rotation = Quaternion.Euler(dto.Rotx, dto.Roty, dto.Rotz);
     }
     void SendLocalPlayerState()
     {
@@ -353,7 +400,6 @@ public class SocketsUDPClient : MonoBehaviour
 
         PlayerVarsDTO dto = new PlayerVarsDTO
         {
-            id = 1,
 
             Posx = position.x,
             Posy = position.y,
@@ -521,59 +567,31 @@ public class SocketsUDPClient : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    // =============================================================================================
-    //  TODO AREA - this is the only part you have to write
-    // =============================================================================================
 
-    // --------------------------------------------------------------------------------- TODO 1 ---
-    //  Goal: create the client socket and return it.
-    //  Shorter than you expect: no Connect(), and no Bind() either, because the first SendTo()
-    //  makes the system choose a local port for you (slide 6).
-    //  Careful with the socket type and the protocol: datagrams, not streams.
     Socket StartClient()
     {
         Socket socket = new Socket(AddressFamily.InterNetwork,SocketType.Dgram,ProtocolType.Udp);
 
-        return socket;   // replace with the socket you created
+        return socket;   
     }
 
-    // --------------------------------------------------------------------------------- TODO 2 ---
-    //  Goal: build and return the address of the server, using 'serverIp' and 'port'.
-    //  This is the envelope you will write on every message you send (slide 10).
-    //  Look it up: IPEndPoint and IPAddress in the docs. IPAddress.Parse turns "127.0.0.1" into an
-    //  IPAddress. The return type is EndPoint, and IPEndPoint is an EndPoint.
-    //  Console when it works:  [CLIENT] Ready, server is 127.0.0.1:9050
     EndPoint ServerEndPoint()
     {
-        return new IPEndPoint(IPAddress.Parse(serverIp),port);   // replace with the server address
+        return new IPEndPoint(IPAddress.Parse(serverIp),port);   
     }
 
-    // --------------------------------------------------------------------------------- TODO 3 ---
-    //  Goal: introduce yourself by sending 'userName' to the server.
-    //  In TCP the connection was made by Connect(). Here there is no connection: this first
-    //  message is the only thing that tells the server that you exist (slide 9).
-    //  Use the helper that is already written: SendString(text).
-    //  Console when it works: the server prints  [SERVER] Received: Player
     void OnStarted()
     {
-        SendString("JOIN:" + userName);      // your code here
+        SendString("JOIN:" + userName);     
     }
 
-    // --------------------------------------------------------------------------------- TODO 4 ---
-    //  Goal: send 'data' through 'socket' to the address 'to', and return how many bytes went out.
-    //  Look it up: Socket.SendTo in the docs.
     int SendRaw(Socket socket, byte[] data, EndPoint to)
     {
-        return socket.SendTo(data, to);   // replace with the number of bytes sent
+        return socket.SendTo(data, to);   
     }
 
-    // --------------------------------------------------------------------------------- TODO 5 ---
-    //  Goal: receive one datagram into 'buffer' and return its size.
-    //  Look it up: Socket.ReceiveFrom in the docs. 'from' is passed with 'ref' because the method
-    //  fills it with the address of the sender.
-    //  Console when it works:  [CLIENT] Received: MyServer
     int ReceiveRaw(Socket socket, byte[] buffer, ref EndPoint from)
     {
-        return socket.ReceiveFrom(buffer, ref from);   // replace with the number of bytes received
+        return socket.ReceiveFrom(buffer, ref from);   
     }
 }

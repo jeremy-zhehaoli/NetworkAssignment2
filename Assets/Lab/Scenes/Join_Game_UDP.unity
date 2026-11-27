@@ -153,6 +153,8 @@ MonoBehaviour:
   userName: Player
   autoStart: 0
   messageInput: 
+  m_prefabs:
+  - {fileID: 2031601511783697134, guid: 73ee6fbfc3bc79449bd8ecfd480215e2, type: 3}
   m_localPlayerCube: {fileID: 817341405}
   m_serverNpcCube: {fileID: 564075900}
   m_secondsBetweenUpdate: 0.01
@@ -271,6 +273,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CubeRotate
   speed: 30
+  jumpForce: 5
+  dashForce: 10
 --- !u!23 &564075898
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -397,6 +401,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CubeRotate
   speed: 30
+  jumpForce: 5
+  dashForce: 10
 --- !u!23 &817341403
 MeshRenderer:
   m_ObjectHideFlags: 0
